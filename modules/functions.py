@@ -19,6 +19,7 @@ def update_v(
     q=1.6e-19,
     m=9.11e-31,
 ):
+
     s = np.zeros((3, steps))
     T = ((q * dt) / (2 * m)) * B
     # s = (2 / (1 + np.linalg.norm(T, axis=0) ** 2)) * T
