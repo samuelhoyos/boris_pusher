@@ -10,7 +10,7 @@ def update_x(v: np.array, x: np.array, dt: float, steps: float) -> np.array:
     return x
 
 
-def update_v(
+def update_v_relativistic(
     v: np.array,
     E: np.array,
     B: np.array,
