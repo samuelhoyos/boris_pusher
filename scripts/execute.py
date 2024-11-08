@@ -17,5 +17,5 @@ dt=((0.1*m)/(np.abs(q)*np.linalg.norm(B0[:,0])))*0.1
 
 if __name__ == "__main__":
     print(dt)
-    v=functions.update_v(v=v0,E=E0,B=B0,dt=dt, steps=steps)
+    v=functions.update_v_relativistic(v=v0,E=E0,B=B0,dt=dt, steps=steps)
     x=functions.update_x(v=v,x=x0,dt=dt,steps=steps)
