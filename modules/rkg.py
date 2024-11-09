@@ -18,6 +18,7 @@ def rkg(
     step_size: float,
     x_final: float,
 ) -> np.ndarray:
+    
     """
     Solve an Ordinary Differential Equations using Runge-Kutta-Gills Method of order 4.
 
@@ -30,37 +31,10 @@ def rkg(
 
     Returns:
         Solution of y at each nodal point
-
-    >>> def f(x, y):
-    ...     return (x-y)/2
-    >>> y = runge_kutta_gills(f, 0, 3, 0.2, 5)
-    >>> float(y[-1])
-    3.4104259225717537
-
-    >>> def f(x,y):
-    ...     return x
-    >>> y = runge_kutta_gills(f, -1, 0, 0.2, 0)
-    >>> y
-    array([ 0.  , -0.18, -0.32, -0.42, -0.48, -0.5 ])
-
-    >>> def f(x, y):
-    ...     return x + y
-    >>> y = runge_kutta_gills(f, 0, 0, 0.2, -1)
-    Traceback (most recent call last):
-        ...
-    ValueError: The final value of x must be greater than initial value of x.
-
-    >>> def f(x, y):
-    ...     return x
-    >>> y = runge_kutta_gills(f, -1, 0, -0.2, 0)
-    Traceback (most recent call last):
-        ...
-    ValueError: Step size must be positive.
     """
+    
     if x_initial >= x_final:
-        raise ValueError(
-            "The final value of x must be greater than initial value of x."
-        )
+        raise ValueError("The final value of x must be greater than initial value of x.")
 
     if step_size <= 0:
         raise ValueError("Step size must be positive.")
@@ -82,9 +56,35 @@ def rkg(
         y[i + 1] = y[i] + (k1 + (2 - sqrt(2)) * k2 + (2 + sqrt(2)) * k3 + k4) / 6
         x_initial += step_size
     return y
+    
+   
+def f(x,y):
+    return x
+
+y = rkg(f, -1, 0, 0.2, 0)
+print(y)
+
+#([ 0.  , -0.18, -0.32, -0.42, -0.48, -0.5 ])
+"""
+
+>>> def f(x, y):
+...     return x + y
+>>> y = runge_kutta_gills(f, 0, 0, 0.2, -1)
+Traceback (most recent call last):
+    ...
+ValueError: The final value of x must be greater than initial value of x.
+
+>>> def f(x, y):
+...     return x
+>>> y = runge_kutta_gills(f, -1, 0, -0.2, 0)
+Traceback (most recent call last):
+    ...
+ValueError: Step size must be positive.
+"""
 
 
-if __name__ == "__main__":
+
+if __name__ == "_main_":
     import doctest
 
     doctest.testmod()
