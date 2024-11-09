@@ -2,17 +2,15 @@ import numpy as np
 from collections.abc import Callable
 from math import sqrt
 
-q = 3e9
+
 me = 9.11e-28
 alpha = 0.05
 c = 3e8
 beta_p = 0.2
-eta_1_0 = 5
-eta_2_0 = 5
-zeta_0 = 5
+
 
 def rkg_vector(
-    func: Callable[[float, np.ndarray, int], np.ndarray],  # Updated function signature
+    func: Callable[[float, np.ndarray,int], np.ndarray],  # Updated function signature
     x_initial: float,
     state_initial: np.ndarray,
     step_size: float,
@@ -28,6 +26,9 @@ def rkg_vector(
     n = int((x_final - x_initial) / step_size)
     states = np.zeros((n + 1, len(state_initial)))
     states[0] = state_initial
+    times = np.zeros(n + 1)  # Array to store the time (t) values
+    times[0] = x_initial
+
     
     s = x_initial
     for i in range(n):
@@ -43,18 +44,18 @@ def rkg_vector(
             )
             states[i + 1] = states[i] + (k1 + (2 - sqrt(2)) * k2 + (2 + sqrt(2)) * k3 + k4) / 6
             s += step_size
+            times[i + 1] = s
         except ValueError as e:
             print(e)
-            return states[:i + 1]
+            return states[:i + 1], times[:i + 1]
     
     return states
 
 
-def particle_dynamics(t, state, iteration=None):
+def particle_dynamics(t, state,iteration=None):
     beta_x, beta_y, beta_z, zeta = state
-    phi = 0
     beta = np.sqrt(beta_x**2 + beta_y**2 + beta_z**2)
-
+    phi=0
     if beta >= 1:
         print("Last valid state", state)
         raise ValueError(f"Error at iteration {iteration}: Beta squared is greater than or equal to 1, which makes gamma invalid.")
@@ -62,7 +63,7 @@ def particle_dynamics(t, state, iteration=None):
 
 
     gamma = 1/np.sqrt(1-beta**2)
-    eta_1 = beta_p * t - alpha * zeta**2 + phi
+    eta_1 = beta_p * t - alpha * zeta**2 +phi
     eta_2 = -eta_1
 
     # Compute magnetic and electric field components
@@ -93,24 +94,6 @@ def particle_dynamics(t, state, iteration=None):
     return np.array([d_beta_x, d_beta_y, d_beta_z, d_zeta])
 
 
-# Parameters for the dynamics
-beta_x0 = 0
-beta_y0 = -beta_p/4 * (np.tanh(eta_1_0) + np.tanh(eta_2_0) * (np.tanh(eta_1_0 -eta_2_0 - 2)))
-
-beta_z0 = -beta_p * alpha * zeta_0/2 * (np.tanh(eta_1_0) - np.tanh(eta_2_0) - 2)
-
-# Initial conditions
-initial_state = np.array([beta_x0, beta_y0, beta_z0, zeta_0])  # Adjust based on your initial conditions
-
-
-# Run the solver with a lambda function to pass additional parameters
-results = rkg_vector(
-    func=particle_dynamics,
-    x_initial=0,
-    state_initial=initial_state,
-    step_size=0.01,
-    x_final=10
-)
-
+# Parameters for the dynamic
 # Display the results
 #print(results)
