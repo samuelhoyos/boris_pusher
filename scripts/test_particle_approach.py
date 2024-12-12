@@ -2,13 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 from matplotlib.animation import FuncAnimation
+from modules.functions import update_v_relativistic, update_x
 
 
 # Constants
-e = 1.6e-19  # Elementary charge (C)
-me = 9.11e-31  # Electron mass (kg)
-c = 3.0e8  # Speed of light (m/s)
-B0 = 1e-3  # Magnetic field strength (T)
+e = 4.8032e-10  # Elementary charge (C)
+me = 9.1094e-28  # Electron mass (kg)
+c = 3.0e10  # Speed of light (m/s)
+B0 = 1  # Magnetic field strength (T)
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
@@ -31,18 +32,29 @@ def magnetic_field(x, y, z, t):
     Bt_z = (B0 / 2) * (np.tanh(g1) + np.tanh(g2))
     return np.array([0, Bt_y, Bt_z])
 
+
+
+
 # Equations of motion
 def equations_of_motion(t, y):
     x, vx, y, vy, z, vz = y
+
+    v = np.sqrt(vx**2 + vy**2 + vz**2)
+    gamma = 1/np.sqrt(1 + (v/c)**2)
+
     v = np.array([vx, vy, vz])
+    v = gamma * v
 
     # Fields at the particle's position
     E = electric_field(x, y, z, t)
     B = magnetic_field(x, y, z, t)
 
     # Lorentz force
-    dv = (e / me) * (E + np.cross(v, B))
+    dv = (e / me) * (E + np.cross(v/gamma, B)/c)
     return [vx, dv[0], vy, dv[1], vz, dv[2]]
+
+
+
 
 # Initial conditions
 num_particles = 1000  # Number of test particles
