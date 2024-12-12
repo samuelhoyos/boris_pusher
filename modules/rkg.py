@@ -18,7 +18,6 @@ def rkg(
     step_size: float,
     x_final: float,
 ) -> np.ndarray:
-    
     """
     Solve an Ordinary Differential Equations using Runge-Kutta-Gills Method of order 4.
 
@@ -32,9 +31,11 @@ def rkg(
     Returns:
         Solution of y at each nodal point
     """
-    
+
     if x_initial >= x_final:
-        raise ValueError("The final value of x must be greater than initial value of x.")
+        raise ValueError(
+            "The final value of x must be greater than initial value of x."
+        )
 
     if step_size <= 0:
         raise ValueError("Step size must be positive.")
@@ -56,15 +57,16 @@ def rkg(
         y[i + 1] = y[i] + (k1 + (2 - sqrt(2)) * k2 + (2 + sqrt(2)) * k3 + k4) / 6
         x_initial += step_size
     return y
-    
-   
-def f(x,y):
+
+
+def f(x, y):
     return x
+
 
 y = rkg(f, -1, 0, 0.2, 0)
 print(y)
 
-#([ 0.  , -0.18, -0.32, -0.42, -0.48, -0.5 ])
+# ([ 0.  , -0.18, -0.32, -0.42, -0.48, -0.5 ])
 """
 
 >>> def f(x, y):
@@ -81,7 +83,6 @@ Traceback (most recent call last):
     ...
 ValueError: Step size must be positive.
 """
-
 
 
 if __name__ == "_main_":
