@@ -15,18 +15,19 @@ a = 0.05  # Magnetic curvature coefficient
 # Derived quantities
 v_s = beta_p * c  # Shock speed
 omega_ce = e * B0 / me  # Electron cyclotron frequency
+k = omega_ce / c
 
 # Define the electromagnetic field functions
 def electric_field(x, y, z, t):
-    g1 = -a * y + beta_p * omega_ce * t
-    g2 = a * y - beta_p * omega_ce * t
-    Et_x = -(v_s * B0 / (2 * c)) * (np.tanh(g1) - np.tanh(g2))
+    g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
+    g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
+    Et_x = -(v_s * B0 / (2 * c)) * (np.tanh(g1) - np.tanh(g2) - 2)
     return np.array([Et_x, 0, 0])
 
 def magnetic_field(x, y, z, t):
-    g1 = -a * y + beta_p * omega_ce * t
-    g2 = a * y - beta_p * omega_ce * t
-    Bt_y = -(a * B0) * (np.tanh(g1) - np.tanh(g2))
+    g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
+    g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
+    Bt_y = -(a *k * z* B0) * (np.tanh(g1) - np.tanh(g2) - 2)
     Bt_z = (B0 / 2) * (np.tanh(g1) + np.tanh(g2))
     return np.array([0, Bt_y, Bt_z])
 
