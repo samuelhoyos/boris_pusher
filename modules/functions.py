@@ -9,18 +9,18 @@ def update_v_relativistic(
     v: np.array,
     E: np.array,
     B: np.array,
+    vm: np.array,
+    vp: np.array,
+    v_aux: np.array,
     dt: float,
-    q:float=4.8032e-10,
-    m:float=9.1094e-28,
-    c:float=3e10
+    q:float=1.609e-19,
+    m:float=9.11e-31,
+    c:float=3e8,
 ):
     s = np.zeros(3)
     T = ((q * dt) / (2 * m)) * B
     # s = (2 / (1 + np.linalg.norm(T, axis=0) ** 2)) * T
-    vm = np.zeros(3)
-    vp = np.zeros(3)
-    v_aux = np.zeros(3)
-    
+
     v_mag = np.linalg.norm(v)
     gamma = 1 / np.sqrt(1 - (v_mag*2 / c*2))
     T = ((q * dt) / (2 * gamma * m)) * B
@@ -30,4 +30,4 @@ def update_v_relativistic(
     vp = vm + np.cross(v_aux, s)
     v = vp + (q / (gamma*m)) * E * 0.5 * dt
 
-    return v
+    return v, vm, vp, v_aux

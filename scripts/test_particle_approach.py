@@ -12,17 +12,17 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from modules.functions import update_v_relativistic, update_r
 
 
-# Constants
-e = 4.8032e-10  # Elementary charge (C)
-me = 9.1094e-28  # Electron mass (kg)
-c = 3.0e10  # Speed of light (m/s)
-B0 = 1  # Magnetic field strength (T)
+# Constants (in the SI system)
+e = 1.609e-19  # Elementary charge (C)
+me = 9.11e-31  # Electron mass (kg)
+c = 3.0e8  # Speed of light (m/s)
+B0 = 1  # Magnetic field strength (Normalized unit)
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
 # Derived quantities
 v_s = beta_p * c  # Shock speed
-omega_ce = e * B0 / me  # Electron cyclotron frequency
+omega_ce = e * B0 / me # Electron cyclotron frequency
 k = omega_ce / c
 
 
@@ -30,8 +30,8 @@ k = omega_ce / c
 def electric_field(x, y, z, t):
     g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
     g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
-    Et_x = -(v_s * B0 / (2 * c)) * (np.tanh(g1) - np.tanh(g2) - 2)
-    return np.array([Et_x, 0, 0])
+    Et_x = -(v_s * B0 / 2) * (np.tanh(g1) - np.tanh(g2) - 2)
+    return np.array([1, 0, 0])
 
 
 def magnetic_field(x, y, z, t):
@@ -39,9 +39,9 @@ def magnetic_field(x, y, z, t):
     g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
     Bt_y = -(a * k * z * B0) * (np.tanh(g1) - np.tanh(g2) - 2)
     Bt_z = (B0 / 2) * (np.tanh(g1) + np.tanh(g2))
-    return np.array([0, Bt_y, Bt_z])
+    return np.array([1e-14, 0, 0])
 
-
+"""
 # Equations of motion
 def equations_of_motion(t, y):
     x, vx, y, vy, z, vz = y
@@ -59,13 +59,13 @@ def equations_of_motion(t, y):
     # Lorentz force
     dv = (e / me) * (E + np.cross(v / gamma, B) / c)
     return [vx, dv[0], vy, dv[1], vz, dv[2]]
-
+"""
 
 # Initial conditions
-num_particles = 1000  # Number of test particles
+num_particles = 1  # Number of test particles
 initial_positions = np.random.uniform(-10, 10, (num_particles, 3))  # (x, y, z)
-
 initial_velocities = np.zeros((num_particles, 3))
+
 for i in range(num_particles): 
     if initial_positions[i,1] >= 0:
         initial_velocities[i, 1] = v_s
@@ -75,8 +75,9 @@ for i in range(num_particles):
 
 
 # Time integration parameters
-time_span = 2e8 * 2 * np.pi / omega_ce # Integration time
-num_steps = 100
+time_span = 1
+#time_span = 10 * 2 * np.pi / omega_ce # Integration time
+num_steps = int(1e4)
 dt = time_span / num_steps
 
 # Storage for trajectories
@@ -89,19 +90,21 @@ for i in tqdm(range(num_particles)):
     r = initial_positions[i]
 
     new_trajectory = np.zeros((num_steps, 3))
+    vm = np.zeros(3)
+    vp = np.zeros(3)
+    v_aux = np.zeros(3)
+    v = initial_velocities[i]
 
     for it,t in enumerate(time_points):
 
-        v = update_v_relativistic(
-            initial_velocities[i],
-            electric_field(x=r[0], y=r[1], z=r[2], t=t),
-            magnetic_field(x=r[0], y=r[1], z=r[2], t=t),
-            dt,
-            num_steps)
+        v, vm, vp, v_aux = update_v_relativistic(v,
+                                                 electric_field(x=r[0], y=r[1], z=r[2], t=t),
+                                                 magnetic_field(x=r[0], y=r[1], z=r[2], t=t),
+                                                 vm, vp, v_aux, dt)
                 
         r = update_r(v, r, dt, num_steps)
 
-        new_trajectory[it] = r
+        new_trajectory[it] = v
 
     trajectories[i] = new_trajectory
 
