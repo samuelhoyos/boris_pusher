@@ -28,7 +28,7 @@ omega_ce = e * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c  # Wave vector
 
 # Final time for the simulation
-final_time = 1e-6
+final_time = 1e-7
 
 # Ranges for g1, g2, t, and z
 g1_min, g1_max = -10, 10
@@ -234,39 +234,45 @@ for i in tqdm(range(num_particles)):
 
 trajectories = np.array(trajectories)
 
-# eta_plot = np.zeros((len(trajectories[0]), num_particles))
+eta_plot = []
+zeta_plot = []
 
-eta_plot = np.select(
-    [positive_negative_velocity],
-    [
-        k * np.array([row[1] for row in trajectories[i]])
-        + beta_p * omega_ce * np.array([row[0] for row in time[i]])
-        - a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2
-    ],
-    k * np.array([row[1] for row in trajectories[i]])
-    - beta_p * omega_ce * np.array([row[0] for row in time[i]])
-    + a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2,
-)
+for i in range(num_particles):
+    zeta_plot.append(np.array([row[2] for row in trajectories[i]]) * k)
 
-zeta_plot = np.array([row[2] for row in trajectories[i]]) * k
+    if positive_negative_velocity: 
+        eta_plot.append(k * np.array([row[1] for row in trajectories[0]])
+        + beta_p * omega_ce * np.array(time[i])
+        - a * k**2 * np.array([row[2] for row in trajectories[0]]) ** 2)
+    else: 
+        eta_plot.append(k * np.array([row[1] for row in trajectories[0]])
+        - beta_p * omega_ce * np.array(time[i])
+        + a * k**2 * np.array([row[2] for row in trajectories[0]]) ** 2)
+
+
+eta_plot = np.copy(eta_plot[0][0:-1])
+zeta_plot = np.copy(zeta_plot[0][0:-1])
 
 # Create a 3D plot
 fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(111, projection="3d")
+plt.plot(eta_plot, zeta_plot)
 
-# Plot each particle's trajectory
-for i in range(num_particles):
-    x = [row[0] for row in trajectories[i]]
-    y = [row[1] for row in trajectories[i]]
-    z = [row[2] for row in trajectories[i]]
-    ax.plot(x, y, z, label=f"Particle {i + 1}")
 
-# Add labels and legend
-ax.set_xlabel("X Position")
-ax.set_ylabel("Y Position")
-ax.set_zlabel("Z Position")
-ax.set_title("3D Trajectories of Particles")
-ax.legend()
+# ax = fig.add_subplot(111, projection="3d")
+
+# # Plot each particle's trajectory
+# for i in range(num_particles):
+#     x = [row[0] for row in trajectories[i]]
+#     y = [row[1] for row in trajectories[i]]
+#     z = [row[2] for row in trajectories[i]]
+#     ax.plot(x, y, z, label=f"Particle {i + 1}")
+
+# # Add labels and legend
+# ax.set_xlabel("X Position")
+# ax.set_ylabel("Y Position")
+# ax.set_zlabel("Z Position")
+# ax.set_title("3D Trajectories of Particles")
+# ax.legend()
 
 # Show the plot
 plt.show()
