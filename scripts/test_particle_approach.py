@@ -27,7 +27,24 @@ v_s = beta_p * c  # Shock speed
 omega_ce = e * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c
 
+# Final time
 final_time = 1e-6
+
+# Ranges for g1, g2, t, and z
+g1_min, g1_max = -10, 10
+g2_min, g2_max = -10, 10
+t_min, t_max = 0, final_time
+z_min, z_max = -10 / k, 10 / k
+
+# Calculate y_min
+y_min = np.min([(g1_min - beta_p * omega_ce * t_max + a * k**2 * z_min**2) / k, (g2_min + beta_p * omega_ce * t_max - a * k**2 * z_max**2) / k])
+
+# Calculate y_max
+y_max = np.max([(g1_max - beta_p * omega_ce * t_min + a * k**2 * z_max**2) / k, (g2_max + beta_p * omega_ce * t_min - a * k**2 * z_min**2) / k])
+
+# Output the range for y
+print(f"Range for y: [{y_min}, {y_max}]")
+
 
 # Define the electromagnetic field functions
 def electric_field(y, z, t):
@@ -49,27 +66,30 @@ def magnetic_field(y, z, t):
 # Finding the maximum value for the magnetic field #
 ####################################################
 
-y_vals = np.linspace(-10, 10, 100)
-z_vals = np.linspace(-10, 10, 100)
-t_vals = np.linspace(0, final_time, 100)
+def maximum_magnetic_field(final_time : float):
+    y_vals = np.linspace(y_min, y_max, 100)
+    z_vals = np.linspace(z_min, z_max, 100)
+    t_vals = np.linspace(0, final_time, 100)
 
-# Initialize variables to track maximum
-max_magnitude = 0
-max_coords = (0, 0, 0)
+    # Initialize variables to track maximum
+    max_magnitude = 0
+    max_coords = (0, 0, 0)
 
-# Grid search
-for y in y_vals:
-    for z in z_vals:
-        for t in t_vals:
-            B = magnetic_field(y, z, t)
-            magnitude = np.linalg.norm(B)  # Compute the magnitude
-            if magnitude > max_magnitude:
-                max_magnitude = magnitude
-                max_coords = (y, z, t)
+    # Grid search
+    for y in tqdm(y_vals):
+        for z in z_vals:
+            for t in t_vals:
+                B = magnetic_field(y, z, t)
+                magnitude = np.linalg.norm(B)  # Compute the magnitude
+                if magnitude > max_magnitude:
+                    max_magnitude = magnitude
+                    max_coords = (y, z, t)
 
-# Output the results
-print(f"Maximum magnetic field magnitude: {max_magnitude}")
-print(f"At coordinates: y = {max_coords[0]}, z = {max_coords[1]}, t = {max_coords[2]}")
+    # Output the results
+    print(f"Maximum magnetic field magnitude: {max_magnitude}")
+    print(f"At coordinates: y = {max_coords[0]}, z = {max_coords[1]}, t = {max_coords[2]}")
+
+    return max_magnitude
 
 
 
@@ -94,8 +114,14 @@ def equations_of_motion(t, y):
 """
 
 # Initial conditions
-num_particles = 1  # Number of test particles
-initial_positions = np.random.uniform(-10, 10, (num_particles, 3))  # (x, y, z)
+num_particles = 3  # Number of test particles
+initial_positions_x = np.zeros(num_particles)
+initial_positions_y = np.random.uniform(y_min, y_max, num_particles)
+initial_positions_z = np.random.uniform(z_min, z_max, num_particles)
+
+initial_positions = np.column_stack((initial_positions_x, initial_positions_y, initial_positions_z))
+
+# initial_positions = np.random.uniform(-10, 10, (num_particles, 3))  # (x, y, z)
 initial_velocities = np.zeros((num_particles, 3))
 
 for i in range(num_particles):
@@ -104,50 +130,32 @@ for i in range(num_particles):
     else:
         initial_velocities[i, 1] = v_s
 
-
-# Time integration parameters
-final_time = 1e-6
-num_steps = int(1e5)
-dt = final_time / num_steps
+# Worst-case dt
+# worst_dt = (0.5 *0.1 * me) / (e * np.linalg.norm(maximum_magnetic_field(final_time)))
 
 # Storage for trajectories
 trajectories = []
-time = np.linspace(0, final_time, num_steps)
+#longest_time = np.arange(0, final_time, worst_dt)
 
-trajectories = np.zeros((num_particles, num_steps, 3))
-velocities = np.zeros((num_particles, num_steps, 3))
+velocities = []
+#trajectories = np.zeros((num_particles, len(longest_time), 3))
+#velocities = np.zeros((num_particles, len(longest_time), 3))
 
 for i in tqdm(range(num_particles)):
-    new_trajectory = np.zeros((num_steps, 3))
-    new_velocity = np.zeros((num_steps, 3))
+    #new_trajectory = np.zeros((len(longest_time), 3))
+    #new_velocity = np.zeros((len(longest_time), 3))
+    new_trajectory = []
+    new_velocity = []
+    
     r = initial_positions[i]
     v = initial_velocities[i]
 
-    # t = 0
+    t = 0
     # idx = 0
 
-    # while t < final_time: 
-    #     dt = (0.5 *0.1 * me) / (e * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))
-    #     v = update_v_relativistic(
-    #         v=v,
-    #         E=electric_field(y=r[1], z=r[2], t=t),
-    #         B=magnetic_field(y=r[1], z=r[2], t=t),
-    #         dt=dt,
-    #     )
-
-    #     r = update_r(v, r, dt)
-
-    #     new_trajectory[idx] = r
-    #     new_velocity[idx] = v
-
-    #     t += dt
-    #     idx += 1
-
-    # trajectories[i] = new_trajectory
-    # velocities[i] = new_velocity
-
-    for it, t in enumerate(time):
-        
+    while t < final_time: 
+        dt = (0.5 *0.1 * me) / (e * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))
+        print(f"dt : {dt}, t: {t}")
         v = update_v_relativistic(
             v=v,
             E=electric_field(y=r[1], z=r[2], t=t),
@@ -157,11 +165,38 @@ for i in tqdm(range(num_particles)):
 
         r = update_r(v, r, dt)
 
-        new_trajectory[it] = r
-        new_velocity[it] = v
+        new_trajectory.append(r)
+        new_velocity.append(v)
 
-    trajectories[i] = new_trajectory
-    velocities[i] = new_velocity
+        #new_trajectory[idx] = r
+        #new_velocity[idx] = v
+
+        t += dt
+        #idx += 1
+
+    trajectories.append(new_trajectory)
+    velocities.append(new_velocity)
+
+    # trajectories[i] = new_trajectory
+    # velocities[i] = new_velocity
+
+
+    # for it, t in enumerate(time):
+        
+    #     v = update_v_relativistic(
+    #         v=v,
+    #         E=electric_field(y=r[1], z=r[2], t=t),
+    #         B=magnetic_field(y=r[1], z=r[2], t=t),
+    #         dt=dt,
+    #     )
+
+    #     r = update_r(v, r, dt)
+
+    #     new_trajectory[it] = r
+    #     new_velocity[it] = v
+
+    # trajectories[i] = new_trajectory
+    # velocities[i] = new_velocity
 
 
 #############################
