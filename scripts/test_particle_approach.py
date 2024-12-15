@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 from tqdm import tqdm
 from matplotlib.animation import FuncAnimation
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 import sys
 import os
@@ -31,7 +33,7 @@ def electric_field(y, z, t):
     g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
     g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
     Et_x = -(v_s * B0 / 2) * (np.tanh(g1) - np.tanh(g2) - 2)
-    return np.array([1, 0, 0])
+    return np.array([Et_x, 0, 0])
 
 
 def magnetic_field(y, z, t):
@@ -39,7 +41,8 @@ def magnetic_field(y, z, t):
     g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
     Bt_y = -(a * k * z * B0) * (np.tanh(g1) - np.tanh(g2) - 2)
     Bt_z = (B0 / 2) * (np.tanh(g1) + np.tanh(g2))
-    return np.array([1e-14, 0, 0])
+    return np.array([0, Bt_y, Bt_z])
+
 
 
 """
@@ -69,15 +72,15 @@ initial_velocities = np.zeros((num_particles, 3))
 
 for i in range(num_particles):
     if initial_positions[i, 1] >= 0:
-        initial_velocities[i, 1] = v_s
-    else:
         initial_velocities[i, 1] = -v_s
+    else:
+        initial_velocities[i, 1] = v_s
 
 
 # Time integration parameters
-final_time = 1
+final_time = 1e-6
 # final_time = 10 * 2 * np.pi / omega_ce # Integration time
-num_steps = int(1e4)
+num_steps = int(1e5)
 dt = final_time / num_steps
 
 # Storage for trajectories
@@ -97,8 +100,8 @@ for i in tqdm(range(num_particles)):
 
         v = update_v_relativistic(
             v=v,
-            electric_field=electric_field(y=r[1], z=r[2], t=t),
-            magnetic_field=magnetic_field(y=r[1], z=r[2], t=t),
+            E=electric_field(y=r[1], z=r[2], t=t),
+            B=magnetic_field(y=r[1], z=r[2], t=t),
             dt=dt,
         )
 
@@ -111,6 +114,51 @@ for i in tqdm(range(num_particles)):
     velocities[i] = new_velocity
 
 
+#############################
+# Plotting the trajectories #
+#############################
+
+# Create a 3D plot
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection='3d')
+
+# Plot each particle's trajectory
+for i in range(num_particles):
+    x = trajectories[i, :, 0]
+    y = trajectories[i, :, 1]
+    z = trajectories[i, :, 2]
+    ax.plot(x, y, z, label=f'Particle {i + 1}')
+
+# Add labels and legend
+ax.set_xlabel('X Position')
+ax.set_ylabel('Y Position')
+ax.set_zlabel('Z Position')
+ax.set_title('3D Trajectories of Particles')
+ax.legend()
+
+# Show the plot
+plt.show()
+ 
+# fig = plt.figure()
+# plt.axes(projection="3d")  # Crear un eje 3D
+
+# # Graficar cada trayectoria
+# for idx in range(num_particles):
+#     plt.scatter(
+#         trajectories[idx][:, 0], 
+#         trajectories[idx][:, 1], 
+#         trajectories[idx][:, 2], 
+#         label=f"Particle {idx+1}"
+#     )
+
+# # Personalización del gráfico
+# plt.title("Trajectories of Particles")
+# plt.xlabel("X-axis")
+# plt.ylabel("Y-axis")
+# plt.legend()  # Mostrar la leyenda
+
+# # Mostrar el gráfico
+# plt.show()
 """
 # Simulate each particle
 for i in range(num_particles):
