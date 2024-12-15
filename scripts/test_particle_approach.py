@@ -27,13 +27,14 @@ v_s = beta_p * c  # Shock speed
 omega_ce = e * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c
 
+final_time = 1e-6
 
 # Define the electromagnetic field functions
 def electric_field(y, z, t):
     g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
     g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
     Et_x = -(v_s * B0 / 2) * (np.tanh(g1) - np.tanh(g2) - 2)
-    return np.array([Et_x, 0, 0])
+    return np.array([0.1, 0.05, 0])
 
 
 def magnetic_field(y, z, t):
@@ -42,6 +43,33 @@ def magnetic_field(y, z, t):
     Bt_y = -(a * k * z * B0) * (np.tanh(g1) - np.tanh(g2) - 2)
     Bt_z = (B0 / 2) * (np.tanh(g1) + np.tanh(g2))
     return np.array([0, Bt_y, Bt_z])
+
+
+####################################################
+# Finding the maximum value for the magnetic field #
+####################################################
+
+y_vals = np.linspace(-10, 10, 100)
+z_vals = np.linspace(-10, 10, 100)
+t_vals = np.linspace(0, final_time, 100)
+
+# Initialize variables to track maximum
+max_magnitude = 0
+max_coords = (0, 0, 0)
+
+# Grid search
+for y in y_vals:
+    for z in z_vals:
+        for t in t_vals:
+            B = magnetic_field(y, z, t)
+            magnitude = np.linalg.norm(B)  # Compute the magnitude
+            if magnitude > max_magnitude:
+                max_magnitude = magnitude
+                max_coords = (y, z, t)
+
+# Output the results
+print(f"Maximum magnetic field magnitude: {max_magnitude}")
+print(f"At coordinates: y = {max_coords[0]}, z = {max_coords[1]}, t = {max_coords[2]}")
 
 
 
@@ -79,7 +107,6 @@ for i in range(num_particles):
 
 # Time integration parameters
 final_time = 1e-6
-# final_time = 10 * 2 * np.pi / omega_ce # Integration time
 num_steps = int(1e5)
 dt = final_time / num_steps
 
@@ -96,8 +123,31 @@ for i in tqdm(range(num_particles)):
     r = initial_positions[i]
     v = initial_velocities[i]
 
-    for it, t in enumerate(time):
+    # t = 0
+    # idx = 0
 
+    # while t < final_time: 
+    #     dt = (0.5 *0.1 * me) / (e * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))
+    #     v = update_v_relativistic(
+    #         v=v,
+    #         E=electric_field(y=r[1], z=r[2], t=t),
+    #         B=magnetic_field(y=r[1], z=r[2], t=t),
+    #         dt=dt,
+    #     )
+
+    #     r = update_r(v, r, dt)
+
+    #     new_trajectory[idx] = r
+    #     new_velocity[idx] = v
+
+    #     t += dt
+    #     idx += 1
+
+    # trajectories[i] = new_trajectory
+    # velocities[i] = new_velocity
+
+    for it, t in enumerate(time):
+        
         v = update_v_relativistic(
             v=v,
             E=electric_field(y=r[1], z=r[2], t=t),
