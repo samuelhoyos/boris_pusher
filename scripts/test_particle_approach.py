@@ -25,10 +25,10 @@ a = 0.05  # Magnetic curvature coefficient
 # Derived quantities
 v_s = beta_p * c  # Shock speed
 omega_ce = e * B0 / me  # Electron cyclotron frequency
-k = omega_ce / c
+k = omega_ce / c # Wave vector
 
-# Final time
-final_time = 1e-6
+# Final time for the simulation
+final_time = 5e-7
 
 # Ranges for g1, g2, t, and z
 g1_min, g1_max = -10, 10
@@ -51,7 +51,7 @@ def electric_field(y, z, t):
     g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
     g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
     Et_x = -(v_s * B0 / 2) * (np.tanh(g1) - np.tanh(g2) - 2)
-    return np.array([0.1, 0.05, 0])
+    return np.array([Et_x, 0, 0])
 
 
 def magnetic_field(y, z, t):
@@ -114,7 +114,7 @@ def equations_of_motion(t, y):
 """
 
 # Initial conditions
-num_particles = 3  # Number of test particles
+num_particles = 2  # Number of test particles
 initial_positions_x = np.zeros(num_particles)
 initial_positions_y = np.random.uniform(y_min, y_max, num_particles)
 initial_positions_z = np.random.uniform(z_min, z_max, num_particles)
@@ -153,26 +153,29 @@ for i in tqdm(range(num_particles)):
     t = 0
     # idx = 0
 
-    while t < final_time: 
-        dt = (0.5 *0.1 * me) / (e * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))
-        print(f"dt : {dt}, t: {t}")
-        v = update_v_relativistic(
-            v=v,
-            E=electric_field(y=r[1], z=r[2], t=t),
-            B=magnetic_field(y=r[1], z=r[2], t=t),
-            dt=dt,
-        )
+    with tqdm(total=final_time) as pbar:
+        while t < final_time:
+            dt = (0.5 *0.1 * me) / (e * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))
+            v = update_v_relativistic(
+                v=v,
+                E=electric_field(y=r[1], z=r[2], t=t),
+                B=magnetic_field(y=r[1], z=r[2], t=t),
+                dt=dt,
+            )
 
-        r = update_r(v, r, dt)
+            r = update_r(v, r, dt)
 
-        new_trajectory.append(r)
-        new_velocity.append(v)
+            new_trajectory.append(r)
+            new_velocity.append(v)
 
-        #new_trajectory[idx] = r
-        #new_velocity[idx] = v
+            #new_trajectory[idx] = r
+            #new_velocity[idx] = v
 
-        t += dt
-        #idx += 1
+            t += dt
+            #idx += 1
+        
+            pbar.update(dt)
+
 
     trajectories.append(new_trajectory)
     velocities.append(new_velocity)
@@ -209,9 +212,9 @@ ax = fig.add_subplot(111, projection='3d')
 
 # Plot each particle's trajectory
 for i in range(num_particles):
-    x = trajectories[i, :, 0]
-    y = trajectories[i, :, 1]
-    z = trajectories[i, :, 2]
+    x = trajectories[i][:][0]
+    y = trajectories[i][:][1]
+    z = trajectories[i][:][2]
     ax.plot(x, y, z, label=f'Particle {i + 1}')
 
 # Add labels and legend
