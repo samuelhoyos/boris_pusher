@@ -15,10 +15,15 @@ from modules.functions import update_v_relativistic, update_r
 
 
 # Constants (in the SI system)
-e = 1.609e-19  # Elementary charge (C)
-me = 9.11e-31  # Electron mass (kg)
-c = 3.0e8  # Speed of light (m/s)
-B0 = 1  # Magnetic field strength (Normalized unit)
+# e = 1.609e-19  # Elementary charge (C)
+# me = 9.11e-31  # Electron mass (kg)
+# c = 3.0e8  # Speed of light (m/s)
+# Normalized units
+e = -1.0
+me = 1.0
+c = 1.0
+
+B0 = 1 # Magnetic field strength (Normalized unit)
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
@@ -28,7 +33,7 @@ omega_ce = e * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c  # Wave vector
 
 # Final time for the simulation
-final_time = 1e-7
+final_time = 1e4
 
 # Ranges for g1, g2, t, and z
 g1_min, g1_max = -10, 10
@@ -54,6 +59,38 @@ y_max = np.max(
 
 # Output the range for y
 print(f"Range for y: [{y_min}, {y_max}]")
+
+# Range for y
+max_abs_y = np.max([np.abs(y_min), np.abs(y_max)])
+y_range = [-max_abs_y, max_abs_y] # Like this we are sure we are centered in 0
+
+
+######################
+# Initial conditions #
+######################
+
+num_particles = 1  # Number of test particles
+initial_positions_x = np.zeros(num_particles)
+initial_positions_y = np.random.uniform(y_range[0], y_range[1], num_particles)
+initial_positions_z = np.random.uniform(z_min, z_max, num_particles)
+
+initial_positions = np.column_stack(
+    (initial_positions_x, initial_positions_y, initial_positions_z)
+)
+
+# initial_positions = np.random.uniform(-10, 10, (num_particles, 3))  # (x, y, z)
+initial_velocities = np.zeros((num_particles, 3))
+
+# This array says if a particle is going to the right or to the left
+positive_negative_velocity = []
+
+for i in range(num_particles):
+    if initial_positions[i, 1] >= 0:
+        positive_negative_velocity.append(True)
+        initial_velocities[i, 1] = -v_s
+    else:
+        positive_negative_velocity.append(False)
+        initial_velocities[i, 1] = v_s
 
 
 # Define the electromagnetic field functions
@@ -105,52 +142,7 @@ def maximum_magnetic_field(final_time: float):
     return max_magnitude
 
 
-"""
-# Equations of motion
-def equations_of_motion(t, y):
-    x, vx, y, vy, z, vz = y
 
-    v = np.sqrt(vx**2 + vy**2 + vz**2)
-    gamma = 1 / np.sqrt(1 + (v / c) ** 2)
-
-    v = np.array([vx, vy, vz])
-    v = gamma * v
-
-    # Fields at the particle's position
-    E = electric_field(x, y, z, t)
-    B = magnetic_field(x, y, z, t)
-
-    # Lorentz force
-    dv = (e / me) * (E + np.cross(v / gamma, B) / c)
-    return [vx, dv[0], vy, dv[1], vz, dv[2]]
-"""
-
-# Initial conditions
-num_particles = 1  # Number of test particles
-# initial_positions_x = [0,0]
-# initial_positions_y = [-50, -25]
-# initial_positions_z = [0.01, -0.01]
-initial_positions_x = np.zeros(num_particles)
-initial_positions_y = np.random.uniform(y_min, y_max, num_particles)
-initial_positions_z = np.random.uniform(z_min, z_max, num_particles)
-
-initial_positions = np.column_stack(
-    (initial_positions_x, initial_positions_y, initial_positions_z)
-)
-
-# initial_positions = np.random.uniform(-10, 10, (num_particles, 3))  # (x, y, z)
-initial_velocities = np.zeros((num_particles, 3))
-
-# This array says if a particle is going to the right or to the left
-positive_negative_velocity = []
-
-for i in range(num_particles):
-    if initial_positions[i, 1] >= 0:
-        positive_negative_velocity.append(True)
-        initial_velocities[i, 1] = -v_s
-    else:
-        positive_negative_velocity.append(False)
-        initial_velocities[i, 1] = v_s
 
 # Worst-case dt
 # worst_dt = (0.5 *0.1 * me) / (e * np.linalg.norm(maximum_magnetic_field(final_time)))
@@ -180,7 +172,7 @@ for i in tqdm(range(num_particles)):
     with tqdm(total=final_time) as pbar:
         while t < final_time:
             dt = (0.5 * 0.1 * me) / (
-                e * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t))
+                -e * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t))
             )
             v = update_v_relativistic(
                 v=v,
@@ -194,12 +186,8 @@ for i in tqdm(range(num_particles)):
             new_trajectory.append(r)
             new_velocity.append(v)
 
-            # new_trajectory[idx] = r
-            # new_velocity[idx] = v
-
             aux_time.append(t)
             t += dt
-            # idx += 1
 
             pbar.update(dt)
 
@@ -232,47 +220,78 @@ for i in tqdm(range(num_particles)):
 # Plotting the trajectories #
 #############################
 
-trajectories = np.array(trajectories)
+# trajectories = np.array(trajectories, dtype=object)
 
-eta_plot = []
-zeta_plot = []
+# eta_plot = []
+# zeta_plot = []
 
-for i in range(num_particles):
-    zeta_plot.append(np.array([row[2] for row in trajectories[i]]) * k)
-
-    if positive_negative_velocity: 
-        eta_plot.append(k * np.array([row[1] for row in trajectories[0]])
-        + beta_p * omega_ce * np.array(time[i])
-        - a * k**2 * np.array([row[2] for row in trajectories[0]]) ** 2)
-    else: 
-        eta_plot.append(k * np.array([row[1] for row in trajectories[0]])
-        - beta_p * omega_ce * np.array(time[i])
-        + a * k**2 * np.array([row[2] for row in trajectories[0]]) ** 2)
-
-
-eta_plot = np.copy(eta_plot[0][0:-1])
-zeta_plot = np.copy(zeta_plot[0][0:-1])
-
-# Create a 3D plot
-fig = plt.figure(figsize=(10, 8))
-plt.plot(eta_plot, zeta_plot)
-
-
-# ax = fig.add_subplot(111, projection="3d")
-
-# # Plot each particle's trajectory
 # for i in range(num_particles):
-#     x = [row[0] for row in trajectories[i]]
-#     y = [row[1] for row in trajectories[i]]
-#     z = [row[2] for row in trajectories[i]]
-#     ax.plot(x, y, z, label=f"Particle {i + 1}")
+#     zeta_plot.append(np.array([row[2] for row in trajectories[i]]) * k)
 
-# # Add labels and legend
-# ax.set_xlabel("X Position")
-# ax.set_ylabel("Y Position")
-# ax.set_zlabel("Z Position")
-# ax.set_title("3D Trajectories of Particles")
-# ax.legend()
+#     if positive_negative_velocity: 
+#         eta_plot.append(k * np.array([row[1] for row in trajectories[i]])
+#         + beta_p * omega_ce * np.array(time[i])
+#         - a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2)
+#     else: 
+#         eta_plot.append(k * np.array([row[1] for row in trajectories[i]])
+#         - beta_p * omega_ce * np.array(time[i])
+#         + a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2)
+
+# if num_particles == 1: 
+#     eta_plot_sliced = np.copy(eta_plot[0][:-1])
+#     zeta_plot_sliced = np.copy(zeta_plot[0][:-1])
+
+# else: 
+#     eta_plot_sliced = []
+#     zeta_plot_sliced = []
+
+#     for i in range(num_particles): 
+#         eta_plot_sliced_aux = []
+#         zeta_plot_sliced_aux = []
+#         eta_plot_sliced_aux = np.copy(eta_plot[i][:-1])
+#         zeta_plot_sliced_aux = np.copy(zeta_plot[i][:-1])
+#         eta_plot_sliced.append(eta_plot_sliced_aux)
+#         zeta_plot_sliced.append(zeta_plot_sliced_aux)
+
+
+# if num_particles == 1: 
+#     fig = plt.figure(figsize=(10, 8))
+#     plt.plot(eta_plot_sliced, zeta_plot_sliced)
+#     plt.show()
+
+# else:
+
+#     fig = plt.figure(figsize=(10, 8))
+
+#     # Loop with enumeration to get both the index and the data
+#     for i, (eta, zeta) in enumerate(zip(eta_plot_sliced, zeta_plot_sliced)):
+#         plt.plot(eta, zeta, label=f"Plot {i}")  # Use 'i' for labeling each plot
+
+#     # Add labels, title, and legend
+#     plt.xlabel("Eta")
+#     plt.ylabel("Zeta")
+#     plt.title("Eta vs Zeta")
+#     plt.legend()
+#     plt.xlim(-10, 10)
+#     plt.show()
+
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection="3d")
+
+# Plot each particle's trajectory
+for i in range(num_particles):
+    x = [row[0] for row in trajectories[i]]
+    y = [row[1] for row in trajectories[i]]
+    z = [row[2] for row in trajectories[i]]
+    ax.plot(x, y, z, label=f"Particle {i + 1}")
+
+# Add labels and legend
+ax.set_xlabel("X Position")
+# ax.set_ylim(-1000, 1000)
+ax.set_ylabel("Y Position")
+ax.set_zlabel("Z Position")
+ax.set_title("3D Trajectories of Particles")
+ax.legend()
 
 # Show the plot
 plt.show()

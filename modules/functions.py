@@ -11,9 +11,9 @@ def update_v_relativistic(
     E: np.array,
     B: np.array,
     dt: float,
-    q: float = 1.609e-19,
-    m: float = 9.11e-31,
-    c: float = 3e8,
+    q: float = 1,
+    m: float = 1,
+    c: float = 1,
 ):
 
     v_mag = np.linalg.norm(v)
