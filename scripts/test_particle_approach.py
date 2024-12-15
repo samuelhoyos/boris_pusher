@@ -22,24 +22,25 @@ a = 0.05  # Magnetic curvature coefficient
 
 # Derived quantities
 v_s = beta_p * c  # Shock speed
-omega_ce = e * B0 / me # Electron cyclotron frequency
+omega_ce = e * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c
 
 
 # Define the electromagnetic field functions
-def electric_field(x, y, z, t):
+def electric_field(y, z, t):
     g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
     g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
     Et_x = -(v_s * B0 / 2) * (np.tanh(g1) - np.tanh(g2) - 2)
     return np.array([1, 0, 0])
 
 
-def magnetic_field(x, y, z, t):
+def magnetic_field(y, z, t):
     g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
     g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
     Bt_y = -(a * k * z * B0) * (np.tanh(g1) - np.tanh(g2) - 2)
     Bt_z = (B0 / 2) * (np.tanh(g1) + np.tanh(g2))
     return np.array([1e-14, 0, 0])
+
 
 """
 # Equations of motion
@@ -66,48 +67,48 @@ num_particles = 1  # Number of test particles
 initial_positions = np.random.uniform(-10, 10, (num_particles, 3))  # (x, y, z)
 initial_velocities = np.zeros((num_particles, 3))
 
-for i in range(num_particles): 
-    if initial_positions[i,1] >= 0:
+for i in range(num_particles):
+    if initial_positions[i, 1] >= 0:
         initial_velocities[i, 1] = v_s
-    else: 
+    else:
         initial_velocities[i, 1] = -v_s
 
 
-
 # Time integration parameters
-time_span = 1
-#time_span = 10 * 2 * np.pi / omega_ce # Integration time
+final_time = 1
+# final_time = 10 * 2 * np.pi / omega_ce # Integration time
 num_steps = int(1e4)
-dt = time_span / num_steps
+dt = final_time / num_steps
 
 # Storage for trajectories
 trajectories = []
-time_points = np.linspace(0, time_span, num_steps)
+time = np.linspace(0, final_time, num_steps)
 
 trajectories = np.zeros((num_particles, num_steps, 3))
+velocities = np.zeros((num_particles, num_steps, 3))
 
 for i in tqdm(range(num_particles)):
-    r = initial_positions[i]
-
     new_trajectory = np.zeros((num_steps, 3))
-    vm = np.zeros(3)
-    vp = np.zeros(3)
-    v_aux = np.zeros(3)
+    new_velocity = np.zeros((num_steps, 3))
+    r = initial_positions[i]
     v = initial_velocities[i]
 
-    for it,t in enumerate(time_points):
+    for it, t in enumerate(time):
 
-        v, vm, vp, v_aux = update_v_relativistic(v,
-                                                 electric_field(x=r[0], y=r[1], z=r[2], t=t),
-                                                 magnetic_field(x=r[0], y=r[1], z=r[2], t=t),
-                                                 vm, vp, v_aux, dt)
-                
-        r = update_r(v, r, dt, num_steps)
+        v = update_v_relativistic(
+            v=v,
+            electric_field=electric_field(y=r[1], z=r[2], t=t),
+            magnetic_field=magnetic_field(y=r[1], z=r[2], t=t),
+            dt=dt,
+        )
 
-        new_trajectory[it] = v
+        r = update_r(v, r, dt)
+
+        new_trajectory[it] = r
+        new_velocity[it] = v
 
     trajectories[i] = new_trajectory
-
+    velocities[i] = new_velocity
 
 
 """
@@ -115,7 +116,7 @@ for i in tqdm(range(num_particles)):
 for i in range(num_particles):
     y0 = [*initial_positions[i], *initial_velocities[i]]
     sol = solve_ivp(
-        equations_of_motion, time_span, y0, t_eval=time_points, method="RK45"
+        equations_of_motion, final_time, y0, t_eval=time_points, method="RK45"
     )
     trajectories.append(sol.y)
 """
@@ -125,92 +126,91 @@ for i in range(num_particles):
 #################################
 
 
-# Visualization: Snapshots at specific times
-snapshot_times = [0, time_span[1] / 3, 2 * time_span[1] / 3, time_span[1]]
-plt.figure(figsize=(15, 10))
+# # Visualization: Snapshots at specific times
+# snapshot_times = [0, time_span[1] / 3, 2 * time_span[1] / 3, time_span[1]]
+# plt.figure(figsize=(15, 10))
 
-for idx, snapshot_time in enumerate(snapshot_times):
-    plt.subplot(2, 2, idx + 1)
-    snapshot_positions_yz = []
-    snapshot_positions_xy = []
-    snapshot_positions_xz = []
-    for trajectory in trajectories:
-        # Find the index closest to the snapshot time
-        snapshot_index = np.abs(time_points - snapshot_time).argmin()
-        snapshot_positions_yz.append(
-            [trajectory[2][snapshot_index], trajectory[4][snapshot_index]]
-        )  # y, z
-        snapshot_positions_xy.append(
-            [trajectory[0][snapshot_index], trajectory[2][snapshot_index]]
-        )  # x, y
-        snapshot_positions_xz.append(
-            [trajectory[0][snapshot_index], trajectory[4][snapshot_index]]
-        )  # x, z
-    snapshot_positions_yz = np.array(snapshot_positions_yz)
-    snapshot_positions_xy = np.array(snapshot_positions_xy)
-    snapshot_positions_xz = np.array(snapshot_positions_xz)
+# for idx, snapshot_time in enumerate(snapshot_times):
+#     plt.subplot(2, 2, idx + 1)
+#     snapshot_positions_yz = []
+#     snapshot_positions_xy = []
+#     snapshot_positions_xz = []
+#     for trajectory in trajectories:
+#         # Find the index closest to the snapshot time
+#         snapshot_index = np.abs(time_points - snapshot_time).argmin()
+#         snapshot_positions_yz.append(
+#             [trajectory[2][snapshot_index], trajectory[4][snapshot_index]]
+#         )  # y, z
+#         snapshot_positions_xy.append(
+#             [trajectory[0][snapshot_index], trajectory[2][snapshot_index]]
+#         )  # x, y
+#         snapshot_positions_xz.append(
+#             [trajectory[0][snapshot_index], trajectory[4][snapshot_index]]
+#         )  # x, z
+#     snapshot_positions_yz = np.array(snapshot_positions_yz)
+#     snapshot_positions_xy = np.array(snapshot_positions_xy)
+#     snapshot_positions_xz = np.array(snapshot_positions_xz)
 
-    # Plot for the y-z coordinates
-    plt.scatter(
-        snapshot_positions_yz[:, 0], snapshot_positions_yz[:, 1], s=10, alpha=0.7
-    )
-    plt.title(f"Snapshot at t = {snapshot_time:.2e} s")
-    plt.xlabel("y (m)")
-    plt.ylabel("z (m)")
-    plt.grid()
+#     # Plot for the y-z coordinates
+#     plt.scatter(
+#         snapshot_positions_yz[:, 0], snapshot_positions_yz[:, 1], s=10, alpha=0.7
+#     )
+#     plt.title(f"Snapshot at t = {snapshot_time:.2e} s")
+#     plt.xlabel("y (m)")
+#     plt.ylabel("z (m)")
+#     plt.grid()
 
-    """
-    # Plot for the x-y coordinates
-    plt.scatter(snapshot_positions_xy[:, 0], snapshot_positions_xy[:, 1], s=10, alpha=0.7)
-    plt.title(f"Snapshot at t = {snapshot_time:.2e} s")
-    plt.xlabel("x (m)")
-    plt.ylabel("y (m)")
-    plt.grid()
-    
-
-
-    # Plot for the x-z coordinates
-    plt.scatter(snapshot_positions_xz[:, 0], snapshot_positions_xz[:, 1], s=10, alpha=0.7)
-    plt.title(f"Snapshot at t = {snapshot_time:.2e} s")
-    plt.ylim(-0.5e-5, 5e-5)
-    plt.xlabel("x (m)")
-    plt.ylabel("z (m)")
-    plt.grid()
-
-    """
-plt.tight_layout()
-plt.show()
+#     """
+#     # Plot for the x-y coordinates
+#     plt.scatter(snapshot_positions_xy[:, 0], snapshot_positions_xy[:, 1], s=10, alpha=0.7)
+#     plt.title(f"Snapshot at t = {snapshot_time:.2e} s")
+#     plt.xlabel("x (m)")
+#     plt.ylabel("y (m)")
+#     plt.grid()
 
 
-# Trajectories in the y-z plane over time
-plt.figure(figsize=(10, 6))
-for trajectory in trajectories:
-    plt.plot(trajectory[2], trajectory[4], alpha=0.6)  # Plot y vs. z
-plt.title("Particle Trajectories in y-z Plane")
-plt.xlabel("y (m)")
-plt.ylabel("z (m)")
-plt.grid()
-plt.show()
+#     # Plot for the x-z coordinates
+#     plt.scatter(snapshot_positions_xz[:, 0], snapshot_positions_xz[:, 1], s=10, alpha=0.7)
+#     plt.title(f"Snapshot at t = {snapshot_time:.2e} s")
+#     plt.ylim(-0.5e-5, 5e-5)
+#     plt.xlabel("x (m)")
+#     plt.ylabel("z (m)")
+#     plt.grid()
 
-# Trajectories in the x-y plane over time
-plt.figure(figsize=(10, 6))
-for trajectory in trajectories:
-    plt.plot(trajectory[0], trajectory[2], alpha=0.6)  # Plot y vs. z
-plt.title("Particle Trajectories in x-y Plane")
-plt.xlabel("x (m)")
-plt.ylabel("y (m)")
-plt.grid()
-plt.show()
+#     """
+# plt.tight_layout()
+# plt.show()
 
-# Trajectories in the x-z plane over time
-plt.figure(figsize=(10, 6))
-for trajectory in trajectories:
-    plt.plot(trajectory[0], trajectory[4], alpha=0.6)  # Plot y vs. z
-plt.title("Particle Trajectories in x-y Plane")
-plt.xlabel("x (m)")
-plt.ylabel("z (m)")
-plt.grid()
-plt.show()
+
+# # Trajectories in the y-z plane over time
+# plt.figure(figsize=(10, 6))
+# for trajectory in trajectories:
+#     plt.plot(trajectory[2], trajectory[4], alpha=0.6)  # Plot y vs. z
+# plt.title("Particle Trajectories in y-z Plane")
+# plt.xlabel("y (m)")
+# plt.ylabel("z (m)")
+# plt.grid()
+# plt.show()
+
+# # Trajectories in the x-y plane over time
+# plt.figure(figsize=(10, 6))
+# for trajectory in trajectories:
+#     plt.plot(trajectory[0], trajectory[2], alpha=0.6)  # Plot y vs. z
+# plt.title("Particle Trajectories in x-y Plane")
+# plt.xlabel("x (m)")
+# plt.ylabel("y (m)")
+# plt.grid()
+# plt.show()
+
+# # Trajectories in the x-z plane over time
+# plt.figure(figsize=(10, 6))
+# for trajectory in trajectories:
+#     plt.plot(trajectory[0], trajectory[4], alpha=0.6)  # Plot y vs. z
+# plt.title("Particle Trajectories in x-y Plane")
+# plt.xlabel("x (m)")
+# plt.ylabel("z (m)")
+# plt.grid()
+# plt.show()
 
 
 """
