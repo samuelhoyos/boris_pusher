@@ -23,9 +23,9 @@ e = -1.0
 me = 1.0
 c = 1.0
 
-B0 = 1 # Magnetic field strength (Normalized unit)
+B0 = 1.0 # Magnetic field strength (Normalized unit)
 beta_p = 0.2  # Normalized shock speed (v_s/c)
-a = 0.5  # Magnetic curvature coefficient
+a = 0.05  # Magnetic curvature coefficient
 
 # Derived quantities
 v_s = beta_p * c  # Shock speed
@@ -36,10 +36,10 @@ k = omega_ce / c  # Wave vector
 final_time = 1e3
 
 # Ranges for g1, g2, t, and z
-g1_min, g1_max = -10, 10
-g2_min, g2_max = -10, 10
-t_min, t_max = 0, final_time
-z_min, z_max = -10 / k, 10 / k
+g1_min, g1_max = -10.0, 10.0
+g2_min, g2_max = -10.0, 10.0
+t_min, t_max = 0.0, final_time
+z_min, z_max = -10.0 / k, 10.0 / k
 
 # Calculate y_min
 y_min = np.min(
@@ -57,12 +57,12 @@ y_max = np.max(
     ]
 )
 
-# Output the range for y
-print(f"Range for y: [{y_min}, {y_max}]")
-
 # Range for y
 max_abs_y = np.max([np.abs(y_min), np.abs(y_max)])
 y_range = [-max_abs_y, max_abs_y] # Like this we are sure we are centered in 0
+
+# Output the range for y
+print(f"Range for y: [{y_range}]")
 
 
 ######################
@@ -82,7 +82,6 @@ initial_positions = np.column_stack(
 
 print(initial_positions)
 
-# initial_positions = np.random.uniform(-10, 10, (num_particles, 3))  # (x, y, z)
 initial_velocities = np.zeros((num_particles, 3))
 
 # This array says if a particle is going to the right or to the left
@@ -101,15 +100,15 @@ for i in range(num_particles):
 def electric_field(y, z, t):
     g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
     g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
-    Et_x = -(v_s * B0 / 2) * (np.tanh(g1) - np.tanh(g2) - 2)
+    Et_x = -(v_s * B0 / 2.0) * (np.tanh(g1) - np.tanh(g2) - 2.0)
     return np.array([Et_x, 0, 0])
 
 
 def magnetic_field(y, z, t):
     g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
     g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
-    Bt_y = -(a * k * z * B0) * (np.tanh(g1) - np.tanh(g2) - 2)
-    Bt_z = (B0 / 2) * (np.tanh(g1) + np.tanh(g2))
+    Bt_y = -(a * k * z * B0) * (np.tanh(g1) - np.tanh(g2) - 2.0)
+    Bt_z = (B0 / 2.0) * (np.tanh(g1) + np.tanh(g2))
     return np.array([0, Bt_y, Bt_z])
 
 
@@ -181,6 +180,7 @@ for i in tqdm(range(num_particles)):
             dt = (0.5 * 0.1 * me) / (
                 abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t))
             )
+
             v = update_v_relativistic(
                 v=v,
                 E=electric_field(y=r[1], z=r[2], t=t),
@@ -274,7 +274,6 @@ if num_particles == 1:
     plt.show()
 
 else:
-
     fig = plt.figure(figsize=(10, 8))
 
     # Loop with enumeration to get both the index and the data
