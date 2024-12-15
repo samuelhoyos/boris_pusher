@@ -25,15 +25,15 @@ c = 1.0
 
 B0 = 1 # Magnetic field strength (Normalized unit)
 beta_p = 0.2  # Normalized shock speed (v_s/c)
-a = 0.05  # Magnetic curvature coefficient
+a = 0.5  # Magnetic curvature coefficient
 
 # Derived quantities
 v_s = beta_p * c  # Shock speed
-omega_ce = e * B0 / me  # Electron cyclotron frequency
+omega_ce = abs(e) * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c  # Wave vector
 
 # Final time for the simulation
-final_time = 1e4
+final_time = 1e3
 
 # Ranges for g1, g2, t, and z
 g1_min, g1_max = -10, 10
@@ -69,14 +69,18 @@ y_range = [-max_abs_y, max_abs_y] # Like this we are sure we are centered in 0
 # Initial conditions #
 ######################
 
-num_particles = 1  # Number of test particles
+num_particles = 3  # Number of test particles
 initial_positions_x = np.zeros(num_particles)
+seed = 40
+np.random.seed(seed)
 initial_positions_y = np.random.uniform(y_range[0], y_range[1], num_particles)
 initial_positions_z = np.random.uniform(z_min, z_max, num_particles)
 
 initial_positions = np.column_stack(
     (initial_positions_x, initial_positions_y, initial_positions_z)
 )
+
+print(initial_positions)
 
 # initial_positions = np.random.uniform(-10, 10, (num_particles, 3))  # (x, y, z)
 initial_velocities = np.zeros((num_particles, 3))
@@ -168,11 +172,14 @@ for i in tqdm(range(num_particles)):
 
     t = 0
     # idx = 0
-
+    j = 0
     with tqdm(total=final_time) as pbar:
         while t < final_time:
+            if np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)) == 0: 
+                print(f"number of iteration: {j}")
+
             dt = (0.5 * 0.1 * me) / (
-                -e * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t))
+                abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t))
             )
             v = update_v_relativistic(
                 v=v,
@@ -185,6 +192,8 @@ for i in tqdm(range(num_particles)):
 
             new_trajectory.append(r)
             new_velocity.append(v)
+
+            j += 1
 
             aux_time.append(t)
             t += dt
@@ -220,60 +229,69 @@ for i in tqdm(range(num_particles)):
 # Plotting the trajectories #
 #############################
 
-# trajectories = np.array(trajectories, dtype=object)
+trajectories = np.array(trajectories, dtype=object)
 
-# eta_plot = []
-# zeta_plot = []
+eta_plot = []
+zeta_plot = []
 
-# for i in range(num_particles):
-#     zeta_plot.append(np.array([row[2] for row in trajectories[i]]) * k)
+for i in range(num_particles):
+    zeta_plot.append(np.array([row[2] for row in trajectories[i]]) * k)
 
-#     if positive_negative_velocity: 
-#         eta_plot.append(k * np.array([row[1] for row in trajectories[i]])
-#         + beta_p * omega_ce * np.array(time[i])
-#         - a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2)
-#     else: 
-#         eta_plot.append(k * np.array([row[1] for row in trajectories[i]])
-#         - beta_p * omega_ce * np.array(time[i])
-#         + a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2)
+    if positive_negative_velocity: 
+        eta_plot.append(k * np.array([row[1] for row in trajectories[i]])
+        + beta_p * omega_ce * np.array(time[i])
+        - a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2)
+    else: 
+        eta_plot.append(k * np.array([row[1] for row in trajectories[i]])
+        - beta_p * omega_ce * np.array(time[i])
+        + a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2)
 
-# if num_particles == 1: 
-#     eta_plot_sliced = np.copy(eta_plot[0][:-1])
-#     zeta_plot_sliced = np.copy(zeta_plot[0][:-1])
+if num_particles == 1: 
+    eta_plot_sliced = np.copy(eta_plot[0][:-1])
+    zeta_plot_sliced = np.copy(zeta_plot[0][:-1])
 
-# else: 
-#     eta_plot_sliced = []
-#     zeta_plot_sliced = []
+else: 
+    eta_plot_sliced = []
+    zeta_plot_sliced = []
 
-#     for i in range(num_particles): 
-#         eta_plot_sliced_aux = []
-#         zeta_plot_sliced_aux = []
-#         eta_plot_sliced_aux = np.copy(eta_plot[i][:-1])
-#         zeta_plot_sliced_aux = np.copy(zeta_plot[i][:-1])
-#         eta_plot_sliced.append(eta_plot_sliced_aux)
-#         zeta_plot_sliced.append(zeta_plot_sliced_aux)
+    for i in range(num_particles): 
+        eta_plot_sliced_aux = []
+        zeta_plot_sliced_aux = []
+        eta_plot_sliced_aux = np.copy(eta_plot[i][:-1])
+        zeta_plot_sliced_aux = np.copy(zeta_plot[i][:-1])
+        eta_plot_sliced.append(eta_plot_sliced_aux)
+        zeta_plot_sliced.append(zeta_plot_sliced_aux)
 
 
-# if num_particles == 1: 
-#     fig = plt.figure(figsize=(10, 8))
-#     plt.plot(eta_plot_sliced, zeta_plot_sliced)
-#     plt.show()
+if num_particles == 1: 
+    fig = plt.figure(figsize=(10, 8))
+    plt.plot(eta_plot_sliced, zeta_plot_sliced)
+    plt.plot(eta_plot_sliced[-1], zeta_plot_sliced[-1], color="red", marker = "o")
+    plt.xlabel("Eta")
+    plt.ylabel("Zeta")
+    plt.title("Eta vs Zeta")
+    plt.legend()
+    plt.show()
 
-# else:
+else:
 
-#     fig = plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(10, 8))
 
-#     # Loop with enumeration to get both the index and the data
-#     for i, (eta, zeta) in enumerate(zip(eta_plot_sliced, zeta_plot_sliced)):
-#         plt.plot(eta, zeta, label=f"Plot {i}")  # Use 'i' for labeling each plot
+    # Loop with enumeration to get both the index and the data
+    for i, (eta, zeta) in enumerate(zip(eta_plot_sliced, zeta_plot_sliced)):
+        plt.plot(eta, zeta, label=f"Plot {i}")  # Use 'i' for labeling each plot
 
-#     # Add labels, title, and legend
-#     plt.xlabel("Eta")
-#     plt.ylabel("Zeta")
-#     plt.title("Eta vs Zeta")
-#     plt.legend()
-#     plt.xlim(-10, 10)
-#     plt.show()
+    # Add labels, title, and legend
+    plt.xlabel("Eta")
+    plt.ylabel("Zeta")
+    plt.title("Eta vs Zeta")
+    plt.legend()
+    plt.xlim(-10, 10)
+    plt.show()
+
+################
+# x, y, z plot #
+################
 
 fig = plt.figure(figsize=(10, 8))
 ax = fig.add_subplot(111, projection="3d")
@@ -284,6 +302,7 @@ for i in range(num_particles):
     y = [row[1] for row in trajectories[i]]
     z = [row[2] for row in trajectories[i]]
     ax.plot(x, y, z, label=f"Particle {i + 1}")
+    ax.plot(x[-1], y[-1], z[-1], label=f"Particle {i + 1}", color = "red", marker = "o")
 
 # Add labels and legend
 ax.set_xlabel("X Position")
