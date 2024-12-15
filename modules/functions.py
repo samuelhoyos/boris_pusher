@@ -17,7 +17,7 @@ def update_v_relativistic(
 ):
 
     v_mag = np.linalg.norm(v)
-    gamma = 1 / np.sqrt(1 - (v_mag ** 2 / c ** 2))
+    gamma = 1 / np.sqrt(1 - (v_mag**2 / c**2))
     T = ((q * dt) / (2 * gamma * m)) * B
     s = (2 / (1 + np.linalg.norm(T) ** 2)) * T
 

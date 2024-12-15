@@ -25,10 +25,10 @@ a = 0.05  # Magnetic curvature coefficient
 # Derived quantities
 v_s = beta_p * c  # Shock speed
 omega_ce = e * B0 / me  # Electron cyclotron frequency
-k = omega_ce / c # Wave vector
+k = omega_ce / c  # Wave vector
 
 # Final time for the simulation
-final_time = 5e-7
+final_time = 1e-6
 
 # Ranges for g1, g2, t, and z
 g1_min, g1_max = -10, 10
@@ -37,10 +37,20 @@ t_min, t_max = 0, final_time
 z_min, z_max = -10 / k, 10 / k
 
 # Calculate y_min
-y_min = np.min([(g1_min - beta_p * omega_ce * t_max + a * k**2 * z_min**2) / k, (g2_min + beta_p * omega_ce * t_max - a * k**2 * z_max**2) / k])
+y_min = np.min(
+    [
+        (g1_min - beta_p * omega_ce * t_max + a * k**2 * z_min**2) / k,
+        (g2_min + beta_p * omega_ce * t_max - a * k**2 * z_max**2) / k,
+    ]
+)
 
 # Calculate y_max
-y_max = np.max([(g1_max - beta_p * omega_ce * t_min + a * k**2 * z_max**2) / k, (g2_max + beta_p * omega_ce * t_min - a * k**2 * z_min**2) / k])
+y_max = np.max(
+    [
+        (g1_max - beta_p * omega_ce * t_min + a * k**2 * z_max**2) / k,
+        (g2_max + beta_p * omega_ce * t_min - a * k**2 * z_min**2) / k,
+    ]
+)
 
 # Output the range for y
 print(f"Range for y: [{y_min}, {y_max}]")
@@ -66,7 +76,8 @@ def magnetic_field(y, z, t):
 # Finding the maximum value for the magnetic field #
 ####################################################
 
-def maximum_magnetic_field(final_time : float):
+
+def maximum_magnetic_field(final_time: float):
     y_vals = np.linspace(y_min, y_max, 100)
     z_vals = np.linspace(z_min, z_max, 100)
     t_vals = np.linspace(0, final_time, 100)
@@ -87,10 +98,11 @@ def maximum_magnetic_field(final_time : float):
 
     # Output the results
     print(f"Maximum magnetic field magnitude: {max_magnitude}")
-    print(f"At coordinates: y = {max_coords[0]}, z = {max_coords[1]}, t = {max_coords[2]}")
+    print(
+        f"At coordinates: y = {max_coords[0]}, z = {max_coords[1]}, t = {max_coords[2]}"
+    )
 
     return max_magnitude
-
 
 
 """
@@ -114,20 +126,30 @@ def equations_of_motion(t, y):
 """
 
 # Initial conditions
-num_particles = 2  # Number of test particles
+num_particles = 1  # Number of test particles
+# initial_positions_x = [0,0]
+# initial_positions_y = [-50, -25]
+# initial_positions_z = [0.01, -0.01]
 initial_positions_x = np.zeros(num_particles)
 initial_positions_y = np.random.uniform(y_min, y_max, num_particles)
 initial_positions_z = np.random.uniform(z_min, z_max, num_particles)
 
-initial_positions = np.column_stack((initial_positions_x, initial_positions_y, initial_positions_z))
+initial_positions = np.column_stack(
+    (initial_positions_x, initial_positions_y, initial_positions_z)
+)
 
 # initial_positions = np.random.uniform(-10, 10, (num_particles, 3))  # (x, y, z)
 initial_velocities = np.zeros((num_particles, 3))
 
+# This array says if a particle is going to the right or to the left
+positive_negative_velocity = []
+
 for i in range(num_particles):
     if initial_positions[i, 1] >= 0:
+        positive_negative_velocity.append(True)
         initial_velocities[i, 1] = -v_s
     else:
+        positive_negative_velocity.append(False)
         initial_velocities[i, 1] = v_s
 
 # Worst-case dt
@@ -135,18 +157,20 @@ for i in range(num_particles):
 
 # Storage for trajectories
 trajectories = []
-#longest_time = np.arange(0, final_time, worst_dt)
+# longest_time = np.arange(0, final_time, worst_dt)
 
 velocities = []
-#trajectories = np.zeros((num_particles, len(longest_time), 3))
-#velocities = np.zeros((num_particles, len(longest_time), 3))
+time = []
+# trajectories = np.zeros((num_particles, len(longest_time), 3))
+# velocities = np.zeros((num_particles, len(longest_time), 3))
 
 for i in tqdm(range(num_particles)):
-    #new_trajectory = np.zeros((len(longest_time), 3))
-    #new_velocity = np.zeros((len(longest_time), 3))
+    # new_trajectory = np.zeros((len(longest_time), 3))
+    # new_velocity = np.zeros((len(longest_time), 3))
     new_trajectory = []
     new_velocity = []
-    
+    aux_time = []
+
     r = initial_positions[i]
     v = initial_velocities[i]
 
@@ -155,7 +179,9 @@ for i in tqdm(range(num_particles)):
 
     with tqdm(total=final_time) as pbar:
         while t < final_time:
-            dt = (0.5 *0.1 * me) / (e * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))
+            dt = (0.5 * 0.1 * me) / (
+                e * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t))
+            )
             v = update_v_relativistic(
                 v=v,
                 E=electric_field(y=r[1], z=r[2], t=t),
@@ -168,24 +194,24 @@ for i in tqdm(range(num_particles)):
             new_trajectory.append(r)
             new_velocity.append(v)
 
-            #new_trajectory[idx] = r
-            #new_velocity[idx] = v
+            # new_trajectory[idx] = r
+            # new_velocity[idx] = v
 
+            aux_time.append(t)
             t += dt
-            #idx += 1
-        
+            # idx += 1
+
             pbar.update(dt)
 
-
+    time.append(aux_time)
     trajectories.append(new_trajectory)
     velocities.append(new_velocity)
 
     # trajectories[i] = new_trajectory
     # velocities[i] = new_velocity
 
-
     # for it, t in enumerate(time):
-        
+
     #     v = update_v_relativistic(
     #         v=v,
     #         E=electric_field(y=r[1], z=r[2], t=t),
@@ -206,36 +232,54 @@ for i in tqdm(range(num_particles)):
 # Plotting the trajectories #
 #############################
 
+trajectories = np.array(trajectories)
+
+# eta_plot = np.zeros((len(trajectories[0]), num_particles))
+
+eta_plot = np.select(
+    [positive_negative_velocity],
+    [
+        k * np.array([row[1] for row in trajectories[i]])
+        + beta_p * omega_ce * np.array([row[0] for row in time[i]])
+        - a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2
+    ],
+    k * np.array([row[1] for row in trajectories[i]])
+    - beta_p * omega_ce * np.array([row[0] for row in time[i]])
+    + a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2,
+)
+
+zeta_plot = np.array([row[2] for row in trajectories[i]]) * k
+
 # Create a 3D plot
 fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(111, projection='3d')
+ax = fig.add_subplot(111, projection="3d")
 
 # Plot each particle's trajectory
 for i in range(num_particles):
-    x = trajectories[i][:][0]
-    y = trajectories[i][:][1]
-    z = trajectories[i][:][2]
-    ax.plot(x, y, z, label=f'Particle {i + 1}')
+    x = [row[0] for row in trajectories[i]]
+    y = [row[1] for row in trajectories[i]]
+    z = [row[2] for row in trajectories[i]]
+    ax.plot(x, y, z, label=f"Particle {i + 1}")
 
 # Add labels and legend
-ax.set_xlabel('X Position')
-ax.set_ylabel('Y Position')
-ax.set_zlabel('Z Position')
-ax.set_title('3D Trajectories of Particles')
+ax.set_xlabel("X Position")
+ax.set_ylabel("Y Position")
+ax.set_zlabel("Z Position")
+ax.set_title("3D Trajectories of Particles")
 ax.legend()
 
 # Show the plot
 plt.show()
- 
+
 # fig = plt.figure()
 # plt.axes(projection="3d")  # Crear un eje 3D
 
 # # Graficar cada trayectoria
 # for idx in range(num_particles):
 #     plt.scatter(
-#         trajectories[idx][:, 0], 
-#         trajectories[idx][:, 1], 
-#         trajectories[idx][:, 2], 
+#         trajectories[idx][:, 0],
+#         trajectories[idx][:, 1],
+#         trajectories[idx][:, 2],
 #         label=f"Particle {idx+1}"
 #     )
 
