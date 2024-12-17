@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 # The path has some problems with the folder
 import sys
@@ -20,51 +19,54 @@ from modules.functions import update_v_relativistic, update_r
 e = -1.0  # Electron charge
 me = 1.0  # Electron mass
 c = 1.0  # Speed of light
-B0 = 10  # Magnetic field strength
+B0 = 1  # Magnetic field strength
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
 # Derived quantities (also normalized)
 v_s = beta_p * c  # Shock speed
 omega_ce = abs(e) * B0 / (me * c)  # Electron cyclotron frequency
-k = omega_ce / c  # Width of the shock front
+k = omega_ce / c  # Wave number = inverse of the width of the shock front
+
+num_particles = 32  # Number of test particles
 
 # Final time for the simulation
-final_time = 10
-
-# Ranges for g1, g2, t, and z
-g0_min, g0_max = -10.0, 10.0
-zeta0_min, zeta0_max = -10.0, 10.0
+final_time = 150
 t_min, t_max = 0.0, final_time
-z_min, z_max = zeta0_min / k, zeta0_max / k
 
 # Tolerance for the magnetic field
-tolerance = 0.01
+tolerance = 0.1
 
-seed = 358 # Random seed
+seed = 363 # Random seed
 np.random.seed(seed)
 
-num_particles = 1  # Number of test particles
+####################################
+# Ranges for the initial positions #
+####################################
+
+eta_ranges = [(-6, -4), (-6, -4), (-6, -4), (-6, -4), (4, 6), (4, 6), (4, 6), (4, 6)]
+zeta_ranges = [(-7, -6), (6, 7), (-5, -4), (4, 5), (-7, -6), (6, 7), (-5, -4), (4, 5)]
+
+# Number of particles per subrange
+particles_per_range = int(num_particles/8)
 
 
+###########################################################
+# Definition of the electric and magnetic field functions #
+###########################################################
 
-##############################################
-# Define the electromagnetic field functions #
-##############################################
-
-
-def electric_field(y, z, t):
-    g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
-    g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
-    Et_x = -(v_s * B0 / (2.0 * c)) * (np.tanh(g1) - np.tanh(g2) - 2.0)
+def electric_field(eta, zeta, t):
+    eta_1 = k * (eta + v_s * t) - a * zeta**2
+    eta_2 = k * (eta - v_s * t) + a * zeta**2
+    Et_x = -(v_s * B0 / (2 * c)) * (np.tanh(eta_1) - np.tanh(eta_2) - 2)
     return np.array([Et_x, 0, 0])
 
 
-def magnetic_field(y, z, t):
-    g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
-    g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
-    Bt_y = -(a * k * z * B0) * (np.tanh(g1) - np.tanh(g2) - 2.0)
-    Bt_z = (B0 / 2.0) * (np.tanh(g1) + np.tanh(g2))
+def magnetic_field(eta, zeta, t):
+    eta_1 = k * (eta + v_s * t) - a * zeta**2
+    eta_2 = k * (eta - v_s * t) + a * zeta**2
+    Bt_y = -(a * zeta * B0) * (np.tanh(eta_1) - np.tanh(eta_2) - 2)
+    Bt_z = (B0 / 2) * (np.tanh(eta_1) + np.tanh(eta_2))
     return np.array([0, Bt_y, Bt_z])
 
 
@@ -72,46 +74,37 @@ def magnetic_field(y, z, t):
 # Initial conditions #
 ######################
 
-initial_positions_x = np.zeros(num_particles)
-initial_positions_y = np.zeros(num_particles)
+initial_positions_chi= np.zeros(num_particles)
 
+# Eta and zeta are initialized with random values between certain ranges that can be modified
+initial_positions_eta = np.concatenate([np.random.uniform(low, high, particles_per_range) 
+                                       for low, high in eta_ranges])
 
-initial_positions_eta = np.random.uniform(g0_min, g0_max, num_particles)
+initial_positions_zeta = np.concatenate([np.random.uniform(low, high, particles_per_range) 
+                                        for low, high in zeta_ranges])
+
 print(f"Initial positions eta: {initial_positions_eta}")
-
-initial_positions_zeta = np.random.uniform(zeta0_min, zeta0_max, num_particles)
 print(f"Initial positions zeta: {initial_positions_zeta}")
 
-
-initial_positions_z = initial_positions_zeta / k
-for i, eta in enumerate(initial_positions_eta): 
-    if eta > 0:
-        # eta_1
-        initial_positions_y[i] = (initial_positions_eta[i] + a * initial_positions_zeta[i]**2) / k 
-    else:
-        # eta_2
-        initial_positions_y[i] = (initial_positions_eta[i] - a * initial_positions_zeta[i]**2) / k
-
-
 initial_positions = np.column_stack(
-    (initial_positions_x, initial_positions_y, initial_positions_z)
+    (initial_positions_chi, initial_positions_eta, initial_positions_zeta)
 )
 
 print(f"Initial positions: {initial_positions}")
 
 initial_velocities = np.zeros((num_particles, 3))
 
-# This array says if a particle is going to the right or to the left
+# This array says if a particle is going to the right or to the left (not used)
 is_initial_velocity_positive = []
 
 for i in range(num_particles):
     initial_velocities[i] = (
         np.cross(
-            magnetic_field(y=initial_positions[i, 1], z=initial_positions[i, 2], t=0),
-            electric_field(y=initial_positions[i, 1], z=initial_positions[i, 2], t=0),
+            magnetic_field(eta=initial_positions[i, 1], zeta=initial_positions[i, 2], t=0),
+            electric_field(eta=initial_positions[i, 1], zeta=initial_positions[i, 2], t=0),
         )
         / np.linalg.norm(
-            magnetic_field(y=initial_positions[i, 1], z=initial_positions[i, 2], t=0)
+            magnetic_field(eta=initial_positions[i, 1], zeta=initial_positions[i, 2], t=0)
         )**2
     )
     if initial_positions[i, 1] >= 0:
@@ -122,44 +115,16 @@ for i in range(num_particles):
 print(f"Initial velocities: {initial_velocities}")
 
 
-####################################################
-# Finding the maximum value for the magnetic field #
-####################################################
 
 
-# def maximum_magnetic_field(final_time: float):
-#     y_vals = np.linspace(y_min, y_max, 100)
-#     z_vals = np.linspace(z_min, z_max, 100)
-#     t_vals = np.linspace(0, final_time, 100)
-
-#     # Initialize variables to track maximum
-#     max_magnitude = 0
-#     max_coords = (0, 0, 0)
-
-#     # Grid search
-#     for y in tqdm(y_vals):
-#         for z in z_vals:
-#             for t in t_vals:
-#                 B = magnetic_field(y, z, t)
-#                 magnitude = np.linalg.norm(B)  # Compute the magnitude
-#                 if magnitude > max_magnitude:
-#                     max_magnitude = magnitude
-#                     max_coords = (y, z, t)
-
-#     # Output the results
-#     print(f"Maximum magnetic field magnitude: {max_magnitude}")
-#     print(
-#         f"At coordinates: y = {max_coords[0]}, z = {max_coords[1]}, t = {max_coords[2]}"
-#     )
-
-#     return max_magnitude
-
-
-# Storage for trajectories, velocities and time
 trajectories = []
 velocities = []
 time = []
 
+
+############################
+# Trajectories calculation #
+############################
 
 for i in tqdm(range(num_particles)):
     new_trajectory = []
@@ -174,22 +139,14 @@ for i in tqdm(range(num_particles)):
     with tqdm(total=final_time) as pbar:     
         while (t < final_time):
 
-            omega_0 = abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)) / me
-
-            if (np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)) > tolerance):           
-                dt = (0.01 * 0.1 * me) / (abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))    
-
-            # if omega_0 * dt < 0.1: 
-            #     # print(f"Stability condition not satisfied at position = {j}")
-            #     # print(f"Value of B = {np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t))}")
-            #     # print(f"Current dt = {dt}")
-            #     dt = (0.5 * 0.1 * me) / (abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))
-            
+            if (np.linalg.norm(magnetic_field(eta=r[1], zeta=r[2], t=t)) > tolerance): 
+                # To ensure stability concerning dt   
+                dt = (0.05 * 0.1 * me) / (abs(e) * np.linalg.norm(magnetic_field(eta=r[1], zeta=r[2], t=t)))                
 
             v = update_v_relativistic(
                 v=v,
-                E=electric_field(y=r[1], z=r[2], t=t),
-                B=magnetic_field(y=r[1], z=r[2], t=t),
+                E=electric_field(eta=r[1], zeta=r[2], t=t),
+                B=magnetic_field(eta=r[1], zeta=r[2], t=t),
                 dt=dt,
             )
 
@@ -218,26 +175,18 @@ trajectories = np.array(trajectories, dtype=object)
 
 eta_plot = []
 zeta_plot = []
+eta_plot_aux = []
+zeta_plot_aux = []
 
 for i in range(num_particles):
-    zeta_plot.append(np.array([row[2] for row in trajectories[i]]) * k)
-
-    if is_initial_velocity_positive[i]:
-        eta_plot.append(
-            k * np.array([row[1] for row in trajectories[i]])
-            + v_s * k * np.array(time[i])
-            - a * k**2 * np.array([row[2] for row in trajectories[i]])**2
-        )
-    else:
-        eta_plot.append(
-            k * np.array([row[1] for row in trajectories[i]])
-            - v_s * k * np.array(time[i])
-            + a * k**2 * np.array([row[2] for row in trajectories[i]])**2
-        )
+    eta_plot_aux = np.array([row[1] for row in trajectories[i]])
+    zeta_plot_aux = np.array([row[2] for row in trajectories[i]])
+    eta_plot.append(eta_plot_aux)
+    zeta_plot.append(zeta_plot_aux)
 
 
 for i in range(num_particles):
-    plt.plot(eta_plot[i], zeta_plot[i]) 
+    plt.plot(eta_plot[i], zeta_plot[i], color = "red") 
     plt.xlabel("Eta")
     plt.xlim(-40, 40)
     plt.ylim(-40, 40)
@@ -245,28 +194,4 @@ for i in range(num_particles):
     plt.title("Eta vs Zeta")
     plt.legend()
 
-plt.show()
-
-################
-# x, y, z plot #
-################
-
-fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(111, projection="3d")
-
-# Plot each particle's trajectory
-for i in range(num_particles):
-    x = [row[0] for row in trajectories[i]]
-    y = [row[1] for row in trajectories[i]]
-    z = [row[2] for row in trajectories[i]]
-    ax.plot(x, y, z, label=f"Particle {i + 1}")
-
-# Add labels and legend
-ax.set_xlabel("X Position")
-ax.set_ylabel("Y Position")
-ax.set_zlabel("Z Position")
-ax.set_title("3D Trajectories of Particles")
-ax.legend()
-
-# Show the plot
 plt.show()
