@@ -1,11 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import solve_ivp
 from tqdm import tqdm
-from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
+# The path has some problems with the folder
 import sys
 import os
 
@@ -14,154 +12,129 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from modules.functions import update_v_relativistic, update_r
 
 
-# Constants (in the SI system)
-# e = 1.609e-19  # Elementary charge (C)
-# me = 9.11e-31  # Electron mass (kg)
-# c = 3.0e8  # Speed of light (m/s)
-# Normalized units
-e = -1.0
-me = 1.0
-c = 1.0
+###################################
+# Constants (in normalized units) #
+###################################
 
-B0 = 1.0 # Magnetic field strength (Normalized unit)
+e = -1.0  # Electron charge
+me = 1.0  # Electron mass
+c = 1.0  # Speed of light
+B0 = 1  # Magnetic field strength
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
-# Derived quantities
+
+# Derived quantities (also normalized)
 v_s = beta_p * c  # Shock speed
-omega_ce = abs(e) * B0 / me  # Electron cyclotron frequency
-k = omega_ce / c  # Wave vector
+omega_ce = abs(e) * B0 / (me * c)  # Electron cyclotron frequency
+k = omega_ce / c  # Wave number = inverse of the width of the shock front
+
+num_particles = 8  # Number of test particles
 
 # Final time for the simulation
-final_time = 1e3
+final_time = 150
+omega_ce = abs(e) * B0 / me  # Electron cyclotron frequency
+k = omega_ce / c  # Width of the shock front
 
-# Ranges for g1, g2, t, and z
-g1_min, g1_max = -10.0, 10.0
-g2_min, g2_max = -10.0, 10.0
+# Ranges for g1, g2, t, and z (optional)
+g0_min, g0_max = -10.0, 10.0
+zeta0_min, zeta0_max = -10.0, 10.0
 t_min, t_max = 0.0, final_time
-z_min, z_max = -10.0 / k, 10.0 / k
 
-# Calculate y_min
-y_min = np.min(
-    [
-        (g1_min - beta_p * omega_ce * t_max + a * k**2 * z_min**2) / k,
-        (g2_min + beta_p * omega_ce * t_max - a * k**2 * z_max**2) / k,
-    ]
-)
+# Tolerance for the magnetic field
+tolerance = 0.1
 
-# Calculate y_max
-y_max = np.max(
-    [
-        (g1_max - beta_p * omega_ce * t_min + a * k**2 * z_max**2) / k,
-        (g2_max + beta_p * omega_ce * t_min - a * k**2 * z_min**2) / k,
-    ]
-)
+seed = 363 # Random seed
+np.random.seed(seed)
 
-# Range for y
-max_abs_y = np.max([np.abs(y_min), np.abs(y_max)])
-y_range = [-max_abs_y, max_abs_y] # Like this we are sure we are centered in 0
+####################################
+# Ranges for the initial positions #
+####################################
 
-# Output the range for y
-print(f"Range for y: [{y_range}]")
+#eta_ranges = [(-6, -4), (-6, -4), (-6, -4), (-6, -4), (4, 6), (4, 6), (4, 6), (4, 6)]
+#zeta_ranges = [(-7, -6), (6, 7), (-5, -4), (4, 5), (-7, -6), (6, 7), (-5, -4), (4, 5)]
+eta_ranges = [(0.5, -0.5)]
+zeta_ranges = [(0.5, -0.5)]
+
+# Number of particles per subrange
+particles_per_range = int(num_particles)
+
+
+###########################################################
+# Definition of the electric and magnetic field functions #
+###########################################################
+
+def electric_field(eta, zeta, t):
+    eta_1 = k * (eta + v_s * t) - a * zeta**2
+    eta_2 = k * (eta - v_s * t) + a * zeta**2
+    Et_x = -(v_s * B0 / (2 * c)) * (np.tanh(eta_1) - np.tanh(eta_2) - 2)
+    return np.array([Et_x, 0, 0])
+
+
+def magnetic_field(eta, zeta, t):
+    eta_1 = k * (eta + v_s * t) - a * zeta**2
+    eta_2 = k * (eta - v_s * t) + a * zeta**2
+    Bt_y = -(a * zeta * B0) * (np.tanh(eta_1) - np.tanh(eta_2) - 2)
+    Bt_z = (B0 / 2) * (np.tanh(eta_1) + np.tanh(eta_2))
+    return np.array([0, Bt_y, Bt_z])
 
 
 ######################
 # Initial conditions #
 ######################
 
-num_particles = 3  # Number of test particles
-initial_positions_x = np.zeros(num_particles)
-seed = 40
-np.random.seed(seed)
-initial_positions_y = np.random.uniform(y_range[0], y_range[1], num_particles)
-initial_positions_z = np.random.uniform(z_min, z_max, num_particles)
+initial_positions_chi= np.zeros(num_particles)
+
+# Eta and zeta are initialized with random values between certain ranges that can be modified
+initial_positions_eta = np.concatenate([np.random.uniform(low, high, particles_per_range) 
+                                       for low, high in eta_ranges])
+
+initial_positions_zeta = np.concatenate([np.random.uniform(low, high, particles_per_range) 
+                                        for low, high in zeta_ranges])
+
+print(f"Initial positions eta: {initial_positions_eta}")
+print(f"Initial positions zeta: {initial_positions_zeta}")
 
 initial_positions = np.column_stack(
-    (initial_positions_x, initial_positions_y, initial_positions_z)
+    (initial_positions_chi, initial_positions_eta, initial_positions_zeta)
 )
 
-print(initial_positions)
+print(f"Initial positions: {initial_positions}")
 
 initial_velocities = np.zeros((num_particles, 3))
 
-# This array says if a particle is going to the right or to the left
-positive_negative_velocity = []
+
+# This array says if a particle is going to the right or to the left (not used)
+is_initial_velocity_positive = []
 
 for i in range(num_particles):
-    if initial_positions[i, 1] >= 0:
-        positive_negative_velocity.append(True)
-        initial_velocities[i, 1] = -v_s
-    else:
-        positive_negative_velocity.append(False)
-        initial_velocities[i, 1] = v_s
-
-
-# Define the electromagnetic field functions
-def electric_field(y, z, t):
-    g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
-    g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
-    Et_x = -(v_s * B0 / 2.0) * (np.tanh(g1) - np.tanh(g2) - 2.0)
-    return np.array([Et_x, 0, 0])
-
-
-def magnetic_field(y, z, t):
-    g1 = k * y + beta_p * omega_ce * t - a * k**2 * z**2
-    g2 = k * y - beta_p * omega_ce * t + a * k**2 * z**2
-    Bt_y = -(a * k * z * B0) * (np.tanh(g1) - np.tanh(g2) - 2.0)
-    Bt_z = (B0 / 2.0) * (np.tanh(g1) + np.tanh(g2))
-    return np.array([0, Bt_y, Bt_z])
-
-
-####################################################
-# Finding the maximum value for the magnetic field #
-####################################################
-
-
-def maximum_magnetic_field(final_time: float):
-    y_vals = np.linspace(y_min, y_max, 100)
-    z_vals = np.linspace(z_min, z_max, 100)
-    t_vals = np.linspace(0, final_time, 100)
-
-    # Initialize variables to track maximum
-    max_magnitude = 0
-    max_coords = (0, 0, 0)
-
-    # Grid search
-    for y in tqdm(y_vals):
-        for z in z_vals:
-            for t in t_vals:
-                B = magnetic_field(y, z, t)
-                magnitude = np.linalg.norm(B)  # Compute the magnitude
-                if magnitude > max_magnitude:
-                    max_magnitude = magnitude
-                    max_coords = (y, z, t)
-
-    # Output the results
-    print(f"Maximum magnetic field magnitude: {max_magnitude}")
-    print(
-        f"At coordinates: y = {max_coords[0]}, z = {max_coords[1]}, t = {max_coords[2]}"
+    initial_velocities[i] = (
+        np.cross(
+            magnetic_field(eta=initial_positions[i, 1], zeta=initial_positions[i, 2], t=0),
+            electric_field(eta=initial_positions[i, 1], zeta=initial_positions[i, 2], t=0),
+        )
+        / np.linalg.norm(
+            magnetic_field(eta=initial_positions[i, 1], zeta=initial_positions[i, 2], t=0)
+        )**2
     )
+    if initial_positions[i, 1] >= 0:
+        is_initial_velocity_positive.append(False)
+    else:
+        is_initial_velocity_positive.append(True)
 
-    return max_magnitude
+print(f"Initial velocities: {initial_velocities}")
 
 
 
+############################
+# Trajectories calculation #
+############################
 
-# Worst-case dt
-# worst_dt = (0.5 *0.1 * me) / (e * np.linalg.norm(maximum_magnetic_field(final_time)))
-
-# Storage for trajectories
 trajectories = []
-# longest_time = np.arange(0, final_time, worst_dt)
-
 velocities = []
 time = []
-# trajectories = np.zeros((num_particles, len(longest_time), 3))
-# velocities = np.zeros((num_particles, len(longest_time), 3))
 
 for i in tqdm(range(num_particles)):
-    # new_trajectory = np.zeros((len(longest_time), 3))
-    # new_velocity = np.zeros((len(longest_time), 3))
     new_trajectory = []
     new_velocity = []
     aux_time = []
@@ -170,21 +143,18 @@ for i in tqdm(range(num_particles)):
     v = initial_velocities[i]
 
     t = 0
-    # idx = 0
     j = 0
-    with tqdm(total=final_time) as pbar:
-        while t < final_time:
-            if np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)) == 0: 
-                print(f"number of iteration: {j}")
+    with tqdm(total=final_time) as pbar:     
+        while (t < final_time):
 
-            dt = (0.5 * 0.1 * me) / (
-                abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t))
-            )
+            if (np.linalg.norm(magnetic_field(eta=r[1], zeta=r[2], t=t)) > tolerance): 
+                # To ensure stability concerning dt   
+                dt = (0.05 * 0.1 * me) / (abs(e) * np.linalg.norm(magnetic_field(eta=r[1], zeta=r[2], t=t)))                
 
             v = update_v_relativistic(
                 v=v,
-                E=electric_field(y=r[1], z=r[2], t=t),
-                B=magnetic_field(y=r[1], z=r[2], t=t),
+                E=electric_field(eta=r[1], zeta=r[2], t=t),
+                B=magnetic_field(eta=r[1], zeta=r[2], t=t),
                 dt=dt,
             )
 
@@ -204,26 +174,6 @@ for i in tqdm(range(num_particles)):
     trajectories.append(new_trajectory)
     velocities.append(new_velocity)
 
-    # trajectories[i] = new_trajectory
-    # velocities[i] = new_velocity
-
-    # for it, t in enumerate(time):
-
-    #     v = update_v_relativistic(
-    #         v=v,
-    #         E=electric_field(y=r[1], z=r[2], t=t),
-    #         B=magnetic_field(y=r[1], z=r[2], t=t),
-    #         dt=dt,
-    #     )
-
-    #     r = update_r(v, r, dt)
-
-    #     new_trajectory[it] = r
-    #     new_velocity[it] = v
-
-    # trajectories[i] = new_trajectory
-    # velocities[i] = new_velocity
-
 
 #############################
 # Plotting the trajectories #
@@ -231,244 +181,45 @@ for i in tqdm(range(num_particles)):
 
 trajectories = np.array(trajectories, dtype=object)
 
+chi_plot = []
+chi_plot_aux = []
 eta_plot = []
 zeta_plot = []
+eta_plot_aux = []
+zeta_plot_aux = []
 
 for i in range(num_particles):
-    zeta_plot.append(np.array([row[2] for row in trajectories[i]]) * k)
-
-    if positive_negative_velocity: 
-        eta_plot.append(k * np.array([row[1] for row in trajectories[i]])
-        + beta_p * omega_ce * np.array(time[i])
-        - a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2)
-    else: 
-        eta_plot.append(k * np.array([row[1] for row in trajectories[i]])
-        - beta_p * omega_ce * np.array(time[i])
-        + a * k**2 * np.array([row[2] for row in trajectories[i]]) ** 2)
-
-if num_particles == 1: 
-    eta_plot_sliced = np.copy(eta_plot[0][:-1])
-    zeta_plot_sliced = np.copy(zeta_plot[0][:-1])
-
-else: 
-    eta_plot_sliced = []
-    zeta_plot_sliced = []
-
-    for i in range(num_particles): 
-        eta_plot_sliced_aux = []
-        zeta_plot_sliced_aux = []
-        eta_plot_sliced_aux = np.copy(eta_plot[i][:-1])
-        zeta_plot_sliced_aux = np.copy(zeta_plot[i][:-1])
-        eta_plot_sliced.append(eta_plot_sliced_aux)
-        zeta_plot_sliced.append(zeta_plot_sliced_aux)
+    chi_plot_aux = np.array([row[0] for row in trajectories[i]])
+    eta_plot_aux = np.array([row[1] for row in trajectories[i]])
+    zeta_plot_aux = np.array([row[2] for row in trajectories[i]])
+    chi_plot.append(chi_plot_aux)
+    eta_plot.append(eta_plot_aux)
+    zeta_plot.append(zeta_plot_aux)
 
 
-if num_particles == 1: 
-    fig = plt.figure(figsize=(10, 8))
-    plt.plot(eta_plot_sliced, zeta_plot_sliced)
-    plt.plot(eta_plot_sliced[-1], zeta_plot_sliced[-1], color="red", marker = "o")
+# Eta - zeta plot
+
+plt.figure(1)  # Create the first figure
+for i in range(num_particles):
+    plt.plot(eta_plot[i], zeta_plot[i], color = "red") 
     plt.xlabel("Eta")
+    plt.xlim(-40, 40)
+    plt.ylim(-40, 40)
     plt.ylabel("Zeta")
     plt.title("Eta vs Zeta")
     plt.legend()
-    plt.show()
 
-else:
-    fig = plt.figure(figsize=(10, 8))
 
-    # Loop with enumeration to get both the index and the data
-    for i, (eta, zeta) in enumerate(zip(eta_plot_sliced, zeta_plot_sliced)):
-        plt.plot(eta, zeta, label=f"Plot {i}")  # Use 'i' for labeling each plot
+# Chi - zeta plot
 
-    # Add labels, title, and legend
-    plt.xlabel("Eta")
+plt.figure(2)  # Create the first figure
+for i in range(num_particles):
+    plt.plot(chi_plot[i], zeta_plot[i], color = "red") 
+    plt.xlabel("Chi")
+    plt.xlim(-40, 40)
+    plt.ylim(-40, 40)
     plt.ylabel("Zeta")
-    plt.title("Eta vs Zeta")
+    plt.title("Chi vs Zeta")
     plt.legend()
-    plt.xlim(-10, 10)
-    plt.show()
 
-################
-# x, y, z plot #
-################
-
-fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(111, projection="3d")
-
-# Plot each particle's trajectory
-for i in range(num_particles):
-    x = [row[0] for row in trajectories[i]]
-    y = [row[1] for row in trajectories[i]]
-    z = [row[2] for row in trajectories[i]]
-    ax.plot(x, y, z, label=f"Particle {i + 1}")
-    ax.plot(x[-1], y[-1], z[-1], label=f"Particle {i + 1}", color = "red", marker = "o")
-
-# Add labels and legend
-ax.set_xlabel("X Position")
-# ax.set_ylim(-1000, 1000)
-ax.set_ylabel("Y Position")
-ax.set_zlabel("Z Position")
-ax.set_title("3D Trajectories of Particles")
-ax.legend()
-
-# Show the plot
 plt.show()
-
-# fig = plt.figure()
-# plt.axes(projection="3d")  # Crear un eje 3D
-
-# # Graficar cada trayectoria
-# for idx in range(num_particles):
-#     plt.scatter(
-#         trajectories[idx][:, 0],
-#         trajectories[idx][:, 1],
-#         trajectories[idx][:, 2],
-#         label=f"Particle {idx+1}"
-#     )
-
-# # Personalización del gráfico
-# plt.title("Trajectories of Particles")
-# plt.xlabel("X-axis")
-# plt.ylabel("Y-axis")
-# plt.legend()  # Mostrar la leyenda
-
-# # Mostrar el gráfico
-# plt.show()
-"""
-# Simulate each particle
-for i in range(num_particles):
-    y0 = [*initial_positions[i], *initial_velocities[i]]
-    sol = solve_ivp(
-        equations_of_motion, final_time, y0, t_eval=time_points, method="RK45"
-    )
-    trajectories.append(sol.y)
-"""
-
-#################################
-# No animation (only snapshots) #
-#################################
-
-
-# # Visualization: Snapshots at specific times
-# snapshot_times = [0, time_span[1] / 3, 2 * time_span[1] / 3, time_span[1]]
-# plt.figure(figsize=(15, 10))
-
-# for idx, snapshot_time in enumerate(snapshot_times):
-#     plt.subplot(2, 2, idx + 1)
-#     snapshot_positions_yz = []
-#     snapshot_positions_xy = []
-#     snapshot_positions_xz = []
-#     for trajectory in trajectories:
-#         # Find the index closest to the snapshot time
-#         snapshot_index = np.abs(time_points - snapshot_time).argmin()
-#         snapshot_positions_yz.append(
-#             [trajectory[2][snapshot_index], trajectory[4][snapshot_index]]
-#         )  # y, z
-#         snapshot_positions_xy.append(
-#             [trajectory[0][snapshot_index], trajectory[2][snapshot_index]]
-#         )  # x, y
-#         snapshot_positions_xz.append(
-#             [trajectory[0][snapshot_index], trajectory[4][snapshot_index]]
-#         )  # x, z
-#     snapshot_positions_yz = np.array(snapshot_positions_yz)
-#     snapshot_positions_xy = np.array(snapshot_positions_xy)
-#     snapshot_positions_xz = np.array(snapshot_positions_xz)
-
-#     # Plot for the y-z coordinates
-#     plt.scatter(
-#         snapshot_positions_yz[:, 0], snapshot_positions_yz[:, 1], s=10, alpha=0.7
-#     )
-#     plt.title(f"Snapshot at t = {snapshot_time:.2e} s")
-#     plt.xlabel("y (m)")
-#     plt.ylabel("z (m)")
-#     plt.grid()
-
-#     """
-#     # Plot for the x-y coordinates
-#     plt.scatter(snapshot_positions_xy[:, 0], snapshot_positions_xy[:, 1], s=10, alpha=0.7)
-#     plt.title(f"Snapshot at t = {snapshot_time:.2e} s")
-#     plt.xlabel("x (m)")
-#     plt.ylabel("y (m)")
-#     plt.grid()
-
-
-#     # Plot for the x-z coordinates
-#     plt.scatter(snapshot_positions_xz[:, 0], snapshot_positions_xz[:, 1], s=10, alpha=0.7)
-#     plt.title(f"Snapshot at t = {snapshot_time:.2e} s")
-#     plt.ylim(-0.5e-5, 5e-5)
-#     plt.xlabel("x (m)")
-#     plt.ylabel("z (m)")
-#     plt.grid()
-
-#     """
-# plt.tight_layout()
-# plt.show()
-
-
-# # Trajectories in the y-z plane over time
-# plt.figure(figsize=(10, 6))
-# for trajectory in trajectories:
-#     plt.plot(trajectory[2], trajectory[4], alpha=0.6)  # Plot y vs. z
-# plt.title("Particle Trajectories in y-z Plane")
-# plt.xlabel("y (m)")
-# plt.ylabel("z (m)")
-# plt.grid()
-# plt.show()
-
-# # Trajectories in the x-y plane over time
-# plt.figure(figsize=(10, 6))
-# for trajectory in trajectories:
-#     plt.plot(trajectory[0], trajectory[2], alpha=0.6)  # Plot y vs. z
-# plt.title("Particle Trajectories in x-y Plane")
-# plt.xlabel("x (m)")
-# plt.ylabel("y (m)")
-# plt.grid()
-# plt.show()
-
-# # Trajectories in the x-z plane over time
-# plt.figure(figsize=(10, 6))
-# for trajectory in trajectories:
-#     plt.plot(trajectory[0], trajectory[4], alpha=0.6)  # Plot y vs. z
-# plt.title("Particle Trajectories in x-y Plane")
-# plt.xlabel("x (m)")
-# plt.ylabel("z (m)")
-# plt.grid()
-# plt.show()
-
-
-"""
-##################
-# WITH ANIMATION #
-################## 
-# To plot data with an animation to better see the evolution
-# Convert trajectories to a 3D array with consistent shape
-trajectories = np.array(trajectories)  # Shape: (num_particles, 6, num_steps)
-
-# Create animation
-fig, ax = plt.subplots(figsize=(8, 6))
-ax.set_xlim(-20, 20)
-ax.set_ylim(-0.5e-5, 5e-5)
-ax.set_xlabel("y (m)")
-ax.set_ylabel("z (m)")
-ax.set_title("Particle Motion Animation")
-scat = ax.scatter([], [], s=10, alpha=0.7)
-
-def init():
-    scat.set_offsets(np.empty((0, 2)))  # Return an empty array for the initial frame
-    return scat,
-
-def update(frame):
-    y = trajectories[:, 2, frame]  # y positions at this frame
-    z = trajectories[:, 4, frame]  # z positions at this frame
-    offsets = np.column_stack((y, z))  # Ensure correct shape
-    scat.set_offsets(offsets)
-    return scat,
-
-ani = FuncAnimation(fig, update, frames=num_steps, init_func=init, blit=True, interval=20)
-
-# Display the animation
-plt.show()
-
-# To save the animation as a file (optional):
-# ani.save("particle_motion.mp4", writer="ffmpeg", dpi=300)
-"""
