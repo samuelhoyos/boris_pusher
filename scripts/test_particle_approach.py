@@ -23,6 +23,7 @@ B0 = 1  # Magnetic field strength
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
+
 # Derived quantities (also normalized)
 v_s = beta_p * c  # Shock speed
 omega_ce = abs(e) * B0 / (me * c)  # Electron cyclotron frequency
@@ -32,6 +33,15 @@ num_particles = 32  # Number of test particles
 
 # Final time for the simulation
 final_time = 150
+omega_ce = abs(e) * B0 / me  # Electron cyclotron frequency
+k = omega_ce / c  # Width of the shock front
+
+# Final time for the simulation
+final_time = 1e6
+
+# Ranges for g1, g2, t, and z
+g0_min, g0_max = -10.0, 10.0
+zeta0_min, zeta0_max = -10.0, 10.0
 t_min, t_max = 0.0, final_time
 
 # Tolerance for the magnetic field
