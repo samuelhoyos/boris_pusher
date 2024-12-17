@@ -13,12 +13,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from modules.functions import update_v_relativistic, update_r
 
 
+###################################
+# Constants (in normalized units) #
+###################################
 
-# Constants (in normalized units)
 e = -1.0  # Electron charge
 me = 1.0  # Electron mass
 c = 1.0  # Speed of light
-B0 = 0.01  # Magnetic field strength
+B0 = 10  # Magnetic field strength
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
@@ -28,16 +30,22 @@ omega_ce = abs(e) * B0 / (me * c)  # Electron cyclotron frequency
 k = omega_ce / c  # Width of the shock front
 
 # Final time for the simulation
-final_time = 1e5
+final_time = 10
 
 # Ranges for g1, g2, t, and z
 g0_min, g0_max = -10.0, 10.0
 zeta0_min, zeta0_max = -10.0, 10.0
 t_min, t_max = 0.0, final_time
-z_min, z_max = -10.0 / k, 10.0 / k
+z_min, z_max = zeta0_min / k, zeta0_max / k
 
 # Tolerance for the magnetic field
-tolerance = 1e-3
+tolerance = 0.01
+
+seed = 358 # Random seed
+np.random.seed(seed)
+
+num_particles = 1  # Number of test particles
+
 
 
 ##############################################
@@ -64,12 +72,10 @@ def magnetic_field(y, z, t):
 # Initial conditions #
 ######################
 
-num_particles = 1  # Number of test particles
 initial_positions_x = np.zeros(num_particles)
 initial_positions_y = np.zeros(num_particles)
 
-seed = 358 # Random seed
-np.random.seed(seed)
+
 initial_positions_eta = np.random.uniform(g0_min, g0_max, num_particles)
 print(f"Initial positions eta: {initial_positions_eta}")
 
@@ -165,15 +171,20 @@ for i in tqdm(range(num_particles)):
 
     t = 0
     j = 0
-    epsilon = 1e-3
     with tqdm(total=final_time) as pbar:     
         while (t < final_time):
 
-            # If the magnetic field is too close to 0, we conserve the dt we had before
+            omega_0 = abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)) / me
 
-            B_norm = np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t))
+            if (np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)) > tolerance):           
+                dt = (0.01 * 0.1 * me) / (abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))    
 
-            dt = (0.5 * 0.1 * me) / (abs(e) * np.sqrt(B_norm**2 + epsilon**2))
+            # if omega_0 * dt < 0.1: 
+            #     # print(f"Stability condition not satisfied at position = {j}")
+            #     # print(f"Value of B = {np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t))}")
+            #     # print(f"Current dt = {dt}")
+            #     dt = (0.5 * 0.1 * me) / (abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))
+            
 
             v = update_v_relativistic(
                 v=v,
@@ -226,7 +237,7 @@ for i in range(num_particles):
 
 
 for i in range(num_particles):
-    plt.plot(eta_plot[i], zeta_plot[i])    
+    plt.plot(eta_plot[i], zeta_plot[i]) 
     plt.xlabel("Eta")
     plt.xlim(-40, 40)
     plt.ylim(-40, 40)
