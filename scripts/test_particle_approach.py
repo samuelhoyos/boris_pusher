@@ -29,17 +29,14 @@ v_s = beta_p * c  # Shock speed
 omega_ce = abs(e) * B0 / (me * c)  # Electron cyclotron frequency
 k = omega_ce / c  # Wave number = inverse of the width of the shock front
 
-num_particles = 32  # Number of test particles
+num_particles = 8  # Number of test particles
 
 # Final time for the simulation
 final_time = 150
 omega_ce = abs(e) * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c  # Width of the shock front
 
-# Final time for the simulation
-final_time = 1e6
-
-# Ranges for g1, g2, t, and z
+# Ranges for g1, g2, t, and z (optional)
 g0_min, g0_max = -10.0, 10.0
 zeta0_min, zeta0_max = -10.0, 10.0
 t_min, t_max = 0.0, final_time
@@ -54,11 +51,13 @@ np.random.seed(seed)
 # Ranges for the initial positions #
 ####################################
 
-eta_ranges = [(-6, -4), (-6, -4), (-6, -4), (-6, -4), (4, 6), (4, 6), (4, 6), (4, 6)]
-zeta_ranges = [(-7, -6), (6, 7), (-5, -4), (4, 5), (-7, -6), (6, 7), (-5, -4), (4, 5)]
+#eta_ranges = [(-6, -4), (-6, -4), (-6, -4), (-6, -4), (4, 6), (4, 6), (4, 6), (4, 6)]
+#zeta_ranges = [(-7, -6), (6, 7), (-5, -4), (4, 5), (-7, -6), (6, 7), (-5, -4), (4, 5)]
+eta_ranges = [(0.5, -0.5)]
+zeta_ranges = [(0.5, -0.5)]
 
 # Number of particles per subrange
-particles_per_range = int(num_particles/8)
+particles_per_range = int(num_particles)
 
 
 ###########################################################
@@ -104,6 +103,7 @@ print(f"Initial positions: {initial_positions}")
 
 initial_velocities = np.zeros((num_particles, 3))
 
+
 # This array says if a particle is going to the right or to the left (not used)
 is_initial_velocity_positive = []
 
@@ -126,15 +126,13 @@ print(f"Initial velocities: {initial_velocities}")
 
 
 
+############################
+# Trajectories calculation #
+############################
 
 trajectories = []
 velocities = []
 time = []
-
-
-############################
-# Trajectories calculation #
-############################
 
 for i in tqdm(range(num_particles)):
     new_trajectory = []
@@ -183,18 +181,25 @@ for i in tqdm(range(num_particles)):
 
 trajectories = np.array(trajectories, dtype=object)
 
+chi_plot = []
+chi_plot_aux = []
 eta_plot = []
 zeta_plot = []
 eta_plot_aux = []
 zeta_plot_aux = []
 
 for i in range(num_particles):
+    chi_plot_aux = np.array([row[0] for row in trajectories[i]])
     eta_plot_aux = np.array([row[1] for row in trajectories[i]])
     zeta_plot_aux = np.array([row[2] for row in trajectories[i]])
+    chi_plot.append(chi_plot_aux)
     eta_plot.append(eta_plot_aux)
     zeta_plot.append(zeta_plot_aux)
 
 
+# Eta - zeta plot
+
+plt.figure(1)  # Create the first figure
 for i in range(num_particles):
     plt.plot(eta_plot[i], zeta_plot[i], color = "red") 
     plt.xlabel("Eta")
@@ -202,6 +207,19 @@ for i in range(num_particles):
     plt.ylim(-40, 40)
     plt.ylabel("Zeta")
     plt.title("Eta vs Zeta")
+    plt.legend()
+
+
+# Chi - zeta plot
+
+plt.figure(2)  # Create the first figure
+for i in range(num_particles):
+    plt.plot(chi_plot[i], zeta_plot[i], color = "red") 
+    plt.xlabel("Chi")
+    plt.xlim(-40, 40)
+    plt.ylim(-40, 40)
+    plt.ylabel("Zeta")
+    plt.title("Chi vs Zeta")
     plt.legend()
 
 plt.show()
