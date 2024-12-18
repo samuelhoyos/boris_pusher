@@ -19,7 +19,7 @@ from modules.functions import update_v_relativistic, update_r
 e = -1.0  # Electron charge
 me = 1.0  # Electron mass
 c = 1.0  # Speed of light
-B0 = 1  # Magnetic field strength
+B0 = 3  # Magnetic field strength
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
@@ -29,10 +29,10 @@ v_s = beta_p * c  # Shock speed
 omega_ce = abs(e) * B0 / (me * c)  # Electron cyclotron frequency
 k = omega_ce / c  # Wave number = inverse of the width of the shock front
 
-num_particles = 8  # Number of test particles
+num_particles = 32  # Number of test particles
 
 # Final time for the simulation
-final_time = 150
+final_time = 300
 omega_ce = abs(e) * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c  # Width of the shock front
 
@@ -47,17 +47,27 @@ tolerance = 0.1
 seed = 363 # Random seed
 np.random.seed(seed)
 
+# Used for plotting
+number_of_snapshots = 50
+
 ####################################
 # Ranges for the initial positions #
 ####################################
 
-#eta_ranges = [(-6, -4), (-6, -4), (-6, -4), (-6, -4), (4, 6), (4, 6), (4, 6), (4, 6)]
-#zeta_ranges = [(-7, -6), (6, 7), (-5, -4), (4, 5), (-7, -6), (6, 7), (-5, -4), (4, 5)]
-eta_ranges = [(0.5, -0.5)]
-zeta_ranges = [(0.5, -0.5)]
+# Type 1 range (arbitrarily chosen)
+# eta_ranges = [(-6, -4), (-6, -4), (-6, -4), (-6, -4), (4, 6), (4, 6), (4, 6), (4, 6)]
+# zeta_ranges = [(-7, -6), (6, 7), (-5, -4), (4, 5), (-7, -6), (6, 7), (-5, -4), (4, 5)]
+
+# Type 2 range
+eta_ranges = [(-7, -8), (-7, -8), (7, 8), (7, 8)]
+zeta_ranges = [(-7, -8), (7, 8), (-7, -8), (7, 8)]
+
+# Type 3 range
+#eta_ranges = [(0.5, -0.5)]
+#zeta_ranges = [(0.5, -0.5)]
 
 # Number of particles per subrange
-particles_per_range = int(num_particles)
+particles_per_range = int(num_particles/len(eta_ranges))
 
 
 ###########################################################
@@ -179,7 +189,9 @@ for i in tqdm(range(num_particles)):
 # Plotting the trajectories #
 #############################
 
+time = np.array(time, dtype=object)
 trajectories = np.array(trajectories, dtype=object)
+velocities = np.array(velocities, dtype=object)
 
 chi_plot = []
 chi_plot_aux = []
@@ -222,4 +234,41 @@ for i in range(num_particles):
     plt.title("Chi vs Zeta")
     plt.legend()
 
+
+#############
+# Snapshots #
+#############
+
+# Eta - zeta
+# Define snapshot times
+snapshot_times = [i * final_time / number_of_snapshots for i in range(number_of_snapshots)]
+
+# Color map for snapshots
+colors = plt.cm.viridis(np.linspace(0, 1, len(snapshot_times)))
+
+# Eta - zeta plot
+plt.figure(3)
+for snapshot_idx, snapshot_time in enumerate(snapshot_times):
+    for i in range(num_particles):
+        # Get the time list for the current particle
+        particle_times = time[i]
+
+        # Find the index closest to the snapshot time
+        closest_idx = min(range(len(particle_times)), key=lambda idx: abs(particle_times[idx] - snapshot_time))
+
+        # Get the position of the particle at this time
+        eta_snapshot = eta_plot[i][closest_idx]
+        zeta_snapshot = zeta_plot[i][closest_idx]
+
+        # Plot the snapshot point
+        plt.scatter(eta_snapshot, zeta_snapshot, color=colors[snapshot_idx], label=f"t={snapshot_time:.1f}" if i == 0 else "")
+
+plt.xlabel("Eta")
+plt.xlim(-40, 40)
+plt.ylim(-40, 40)
+plt.ylabel("Zeta")
+plt.title("Eta vs Zeta (Snapshots)")
+plt.legend()
 plt.show()
+
+
