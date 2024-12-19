@@ -19,7 +19,7 @@ from modules.functions import update_v_relativistic, update_r
 e = -1.0  # Electron charge
 me = 1.0  # Electron mass
 c = 1.0  # Speed of light
-B0 = 1 # Magnetic field strength
+B0 = 0.1 # Magnetic field strength
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
@@ -32,7 +32,7 @@ k = omega_ce / c  # Wave number = inverse of the width of the shock front
 num_particles = 16  # Number of test particles
 
 # Final time for the simulation
-final_time = 100
+final_time = 1000
 omega_ce = abs(e) * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c  # Width of the shock front
 
@@ -42,7 +42,7 @@ zeta0_min, zeta0_max = -10.0, 10.0
 t_min, t_max = 0.0, final_time
 
 # Tolerance for the magnetic field
-min_tolerance_B = 1
+min_tolerance_B = 0.01
 
 seed = 363 # Random seed
 np.random.seed(seed)
@@ -59,8 +59,8 @@ number_of_snapshots = 1
 #zeta_ranges = [(-7, -6), (6, 7), (-5, -4), (4, 5), (-7, -6), (6, 7), (-5, -4), (4, 5)]
 
 # Type 2 range (this one is the best one)
-eta_ranges = [(-7, -8), (-7, -8), (7, 8), (7, 8)]
-zeta_ranges = [(-7, -8), (7, 8), (-7, -8), (7, 8)]
+eta_ranges = [(-0.7, -0.8), (-0.7, -0.8), (0.7, 0.8), (0.7, 0.8)]
+zeta_ranges = [(-0.7, -0.8), (0.7, 0.8), (0.-7, -0.8), (0.7, 0.8)]
 
 # Type 3 range
 #eta_ranges = [(0.5, -0.5)]
@@ -91,17 +91,17 @@ particles_per_range = int(num_particles/len(eta_ranges))
 # Definition of the electric and magnetic field functions #
 ###########################################################
 
-def electric_field(eta, zeta, t):
-    eta_1 = k * (eta + v_s * t) - a * zeta**2
-    eta_2 = k * (eta - v_s * t) + a * zeta**2
+def electric_field(y, z, t):
+    eta_1 = k * (y + v_s * t) - a * (k * z)**2
+    eta_2 = k * (y - v_s * t) + a * (k * z)**2
     Et_x = -(v_s * B0 / (2 * c)) * (np.tanh(eta_1) - np.tanh(eta_2) - 2)
     return np.array([Et_x, 0, 0])
 
 
-def magnetic_field(eta, zeta, t):
-    eta_1 = k * (eta + v_s * t) - a * zeta**2
-    eta_2 = k * (eta - v_s * t) + a * zeta**2
-    Bt_y = -(a * zeta * B0) * (np.tanh(eta_1) - np.tanh(eta_2) - 2)
+def magnetic_field(y, z, t):
+    eta_1 = k * (y + v_s * t) - a * (k * z)**2
+    eta_2 = k * (y - v_s * t) + a * (k * z)**2
+    Bt_y = -(a * k * z * B0) * (np.tanh(eta_1) - np.tanh(eta_2) - 2)
     Bt_z = (B0 / 2) * (np.tanh(eta_1) + np.tanh(eta_2))
     return np.array([0, Bt_y, Bt_z])
 
@@ -122,8 +122,20 @@ initial_positions_zeta = np.concatenate([np.random.uniform(low, high, particles_
 print(f"Initial positions eta: {initial_positions_eta}")
 print(f"Initial positions zeta: {initial_positions_zeta}")
 
+initial_positions_x = initial_positions_chi
+initial_positions_z = initial_positions_zeta / k
+
+initial_positions_y = np.zeros(num_particles)
+
+for i in range(len(initial_positions_eta)):
+    if initial_positions_eta[i] < 0:
+        initial_positions_y[i] = (initial_positions_eta[i] + a * (k * initial_positions_z[i]) ** 2) / k
+    else: 
+        initial_positions_y[i] = (initial_positions_eta[i] - a * (k * initial_positions_z[i]) ** 2) / k
+
+
 initial_positions = np.column_stack(
-    (initial_positions_chi, initial_positions_eta, initial_positions_zeta)
+    (initial_positions_x, initial_positions_y, initial_positions_z)
 )
 
 print(f"Initial positions: {initial_positions}")
@@ -137,14 +149,14 @@ is_initial_velocity_positive = []
 for i in range(num_particles):
     initial_velocities[i] = (
         np.cross(
-            magnetic_field(eta=initial_positions[i, 1], zeta=initial_positions[i, 2], t=0),
-            electric_field(eta=initial_positions[i, 1], zeta=initial_positions[i, 2], t=0),
+            magnetic_field(y=initial_positions[i, 1], z=initial_positions[i, 2], t=0),
+            electric_field(y=initial_positions[i, 1], z=initial_positions[i, 2], t=0),
         )
         / np.linalg.norm(
-            magnetic_field(eta=initial_positions[i, 1], zeta=initial_positions[i, 2], t=0)
+            magnetic_field(y=initial_positions[i, 1], z=initial_positions[i, 2], t=0)
         )**2
     )
-    if initial_positions[i, 1] >= 0:
+    if initial_positions_eta[i] >= 0:
         is_initial_velocity_positive.append(False)
     else:
         is_initial_velocity_positive.append(True)
@@ -174,14 +186,14 @@ for i in tqdm(range(num_particles)):
     with tqdm(total=final_time) as pbar:     
         while (t < final_time):
 
-            if (np.linalg.norm(magnetic_field(eta=r[1], zeta=r[2], t=t)) > min_tolerance_B): 
+            if (np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)) > min_tolerance_B): 
                 # To ensure stability concerning dt, and avoiding that it gets too small or too big  
-                dt = (0.05 * 0.1 * me) / (abs(e) * np.linalg.norm(magnetic_field(eta=r[1], zeta=r[2], t=t)))                
+                dt = (0.05 * 0.1 * me) / (abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))                
 
             v = update_v_relativistic(
                 v=v,
-                E=electric_field(eta=r[1], zeta=r[2], t=t),
-                B=magnetic_field(eta=r[1], zeta=r[2], t=t),
+                E=electric_field(y=r[1], z=r[2], t=t),
+                B=magnetic_field(y=r[1], z=r[2], t=t),
                 dt=dt,
             )
 
@@ -210,27 +222,59 @@ time = np.array(time, dtype=object)
 trajectories = np.array(trajectories, dtype=object)
 velocities = np.array(velocities, dtype=object)
 
-chi_plot = []
-chi_plot_aux = []
-eta_plot = []
-zeta_plot = []
-eta_plot_aux = []
-zeta_plot_aux = []
+x_plot = []
+x_plot_aux = []
+y_plot = []
+z_plot = []
+y_plot_aux = []
+z_plot_aux = []
+
+y_velocities = []
+y_velocities_aux = []
 
 for i in range(num_particles):
-    chi_plot_aux = np.array([row[0] for row in trajectories[i]])
-    eta_plot_aux = np.array([row[1] for row in trajectories[i]])
-    zeta_plot_aux = np.array([row[2] for row in trajectories[i]])
-    chi_plot.append(chi_plot_aux)
+    x_plot_aux = np.array([row[0] for row in trajectories[i]])
+    y_plot_aux = np.array([row[1] for row in trajectories[i]])
+    z_plot_aux = np.array([row[2] for row in trajectories[i]])
+    y_velocities_aux = np.array([row[1] for row in velocities[i]])
+
+    x_plot.append(x_plot_aux)
+    y_plot.append(y_plot_aux)
+    z_plot.append(z_plot_aux)
+    y_velocities.append(y_velocities_aux)
+
+
+chi_plot = x_plot
+
+
+zeta_plot = []
+eta_plot = []
+
+for i in range(num_particles): 
+    eta_plot_aux = np.zeros(len(trajectories[i]))
+    zeta_plot_aux = np.zeros(len(trajectories[i]))
+
+    for j in range(len(trajectories[i])):
+        if y_plot[i][j] >= 0: 
+            eta_plot_aux[j] = k * (y_plot[i][j] - v_s * time[i][j]) + a * (k * z_plot[i][j]) ** 2 # eta_2
+            
+        else: 
+            eta_plot_aux[j] = k * (y_plot[i][j] + v_s * time[i][j]) - a * (k * z_plot[i][j]) ** 2 # eta_1
+        
+        zeta_plot_aux[j] = k * z_plot[i][j]
+
     eta_plot.append(eta_plot_aux)
     zeta_plot.append(zeta_plot_aux)
+
+
+
 
 
 # Eta - zeta plot
 
 plt.figure(1)  # Create the first figure
 for i in range(num_particles):
-    plt.plot(eta_plot[i], zeta_plot[i], color = "red") 
+    plt.plot(y_plot[i], z_plot[i], color = "red") 
     plt.xlabel("η")
     plt.xlim(-40, 40)
     plt.ylim(-40, 40)

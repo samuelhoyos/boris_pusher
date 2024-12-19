@@ -24,9 +24,10 @@ def update_v_relativistic(
     c: float = 1.0,
 ):
     
+    
     gamma=1/np.sqrt(1-(np.linalg.norm(v)**2/c**2))
     p=gamma * m * v
-    T = ((q * dt) / (2.0)) * B
+    T = ((q * dt) / (2.0 * gamma)) * B
     s = (2.0 / (1.0 + np.linalg.norm(T)**2)) * T
 
     pm = p + (q * E * dt * 0.5)
