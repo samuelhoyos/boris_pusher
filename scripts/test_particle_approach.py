@@ -33,7 +33,7 @@ k = omega_ce / c  # Wave number = inverse of the width of the shock front
 num_particles = 4  # Number of test particles
 
 # Final time for the simulation
-final_time = 150/B0
+final_time = 15/B0
 omega_ce = abs(e) * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c  # Width of the shock front
 
@@ -59,6 +59,7 @@ number_of_snapshots = 1
 # Type 1 range (arbitrarily chosen)
 #eta_ranges = [(-6, -4), (-6, -4), (-6, -4), (-6, -4), (4, 6), (4, 6), (4, 6), (4, 6)]
 #zeta_ranges = [(-7, -6), (6, 7), (-5, -4), (4, 5), (-7, -6), (6, 7), (-5, -4), (4, 5)]
+# range_num = 1
 
 # Type 2 range (this one is the best one)
 eta_ranges = [(-7, -8), (-7, -8), (7, 8), (7, 8)]
@@ -68,28 +69,33 @@ range_num = 2
 # Type 3 range
 #eta_ranges = [(0.5, -0.5)]
 #zeta_ranges = [(0.5, -0.5)]
+# range_num = 3
 
 # Type 4 range
 # eta_ranges = [(-1, -2), (-1, -2), (1, 2), (1, 2)]
 # zeta_ranges = [(8, 9), (-8, -9), (8, 9), (-8, -9)]
+# range_num = 4
 
 # Type 5 range
 #eta_ranges = [(-10, 10)]
 #zeta_ranges = [(-10, 10)]
+# range_num = 5
 
 # Type 6 range
 # eta_ranges = [(-4, -10), (-4, -10), (4, 10), (4, 10)]
 # zeta_ranges = [(-4, -10), (4, 10), (-4, -10), (4, 10)]
+# range_num = 6
 
 # Type 7 range
 # eta_ranges = [(-10, -8), (8, 10)]
 # zeta_ranges = [(-10, 10), (-10, 10)]
+# range_num = 7
 
 
 # Number of particles per subrange
 particles_per_range = int(num_particles/len(eta_ranges))
 
-
+# Name for the data to be stored in a .csv file at the end of the execution
 dataName = f"B0 = {B0}, N = {num_particles}, t = {final_time}, range = {range_num}"
 
 
@@ -234,7 +240,7 @@ for i in range(num_particles):
     zeta_plot.append(zeta_plot_aux)
 
 
-df = pd.DataFrame({"time": time, "chi": chi_plot, "etas": eta_plot, "zetas": zeta_plot})
+df = pd.DataFrame({"time": time, "xi": chi_plot, "eta": eta_plot, "zeta": zeta_plot})
 df.to_parquet(f"C:\\Users\\danie\\Desktop\\Images Ciardi\\{dataName}.csv")
 
 # Eta - zeta plot
@@ -243,8 +249,6 @@ plt.figure(1)  # Create the first figure
 for i in range(num_particles):
     plt.plot(eta_plot[i], zeta_plot[i], color = "red") 
     plt.xlabel("η")
-    # plt.xlim(-40, 40)
-    # plt.ylim(-40, 40)
     plt.ylabel("ζ")
     plt.legend()
 
@@ -255,8 +259,6 @@ plt.figure(2)  # Create the first figure
 for i in range(num_particles):
     plt.plot(chi_plot[i], zeta_plot[i], color = "red") 
     plt.xlabel("Chi")
-    # plt.xlim(-40, 40)
-    # plt.ylim(-40, 40)
     plt.ylabel("ζ")
     plt.legend()
 
