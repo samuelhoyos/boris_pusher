@@ -19,7 +19,7 @@ from modules.functions import update_v_relativistic, update_r
 e = -1.0  # Electron charge
 me = 1.0  # Electron mass
 c = 1.0  # Speed of light
-B0 = 0.1 # Magnetic field strength
+B0 = 1 # Magnetic field strength
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
@@ -29,10 +29,10 @@ v_s = beta_p * c  # Shock speed
 omega_ce = abs(e) * B0 / (me * c)  # Electron cyclotron frequency
 k = omega_ce / c  # Wave number = inverse of the width of the shock front
 
-num_particles = 16  # Number of test particles
+num_particles = 1  # Number of test particles
 
 # Final time for the simulation
-final_time = 1000
+final_time = 100
 omega_ce = abs(e) * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c  # Width of the shock front
 
@@ -44,7 +44,7 @@ t_min, t_max = 0.0, final_time
 # Tolerance for the magnetic field
 min_tolerance_B = 0.01
 
-seed = 363 # Random seed
+seed = 350 # Random seed
 np.random.seed(seed)
 
 # Used for plotting
@@ -59,8 +59,8 @@ number_of_snapshots = 1
 #zeta_ranges = [(-7, -6), (6, 7), (-5, -4), (4, 5), (-7, -6), (6, 7), (-5, -4), (4, 5)]
 
 # Type 2 range (this one is the best one)
-eta_ranges = [(-0.7, -0.8), (-0.7, -0.8), (0.7, 0.8), (0.7, 0.8)]
-zeta_ranges = [(-0.7, -0.8), (0.7, 0.8), (0.-7, -0.8), (0.7, 0.8)]
+#eta_ranges = [(-0.7, -0.8), (-0.7, -0.8), (0.7, 0.8), (0.7, 0.8)]
+#zeta_ranges = [(-0.7, -0.8), (0.7, 0.8), (0.-7, -0.8), (0.7, 0.8)]
 
 # Type 3 range
 #eta_ranges = [(0.5, -0.5)]
@@ -71,8 +71,8 @@ zeta_ranges = [(-0.7, -0.8), (0.7, 0.8), (0.-7, -0.8), (0.7, 0.8)]
 # zeta_ranges = [(8, 9), (-8, -9), (8, 9), (-8, -9)]
 
 # Type 5 range
-#eta_ranges = [(-10, 10)]
-#zeta_ranges = [(-10, 10)]
+eta_ranges = [(-10, 10)]
+zeta_ranges = [(-10, 10)]
 
 # Type 6 range
 # eta_ranges = [(-4, -10), (-4, -10), (4, 10), (4, 10)]
@@ -172,6 +172,9 @@ print(f"Initial velocities: {initial_velocities}")
 trajectories = []
 velocities = []
 time = []
+gamma_array = []
+dt_array = []
+B_field = []
 
 for i in tqdm(range(num_particles)):
     new_trajectory = []
@@ -186,9 +189,13 @@ for i in tqdm(range(num_particles)):
     with tqdm(total=final_time) as pbar:     
         while (t < final_time):
 
-            if (np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)) > min_tolerance_B): 
-                # To ensure stability concerning dt, and avoiding that it gets too small or too big  
-                dt = (0.05 * 0.1 * me) / (abs(e) * np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))                
+            #if (np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)) > min_tolerance_B): 
+            # To ensure stability concerning dt, and avoiding that it gets too small or too big  
+            gamma = 1/np.sqrt(1 - np.linalg.norm(v)**2/c**2)
+            gamma_array.append(gamma)
+            dt = (0.05 * 0.1 * me * gamma) / (abs(e) * 20)    
+            dt_array.append(dt)     
+            B_field.append(np.linalg.norm(magnetic_field(y=r[1], z=r[2], t=t)))      
 
             v = update_v_relativistic(
                 v=v,
@@ -212,6 +219,9 @@ for i in tqdm(range(num_particles)):
     time.append(aux_time)
     trajectories.append(new_trajectory)
     velocities.append(new_velocity)
+
+#print(f"max gamma = {np.max(gamma_array)}")
+#print(f"max_dt = {np.max(dt_array)}")
 
 
 #############################
@@ -274,7 +284,7 @@ for i in range(num_particles):
 
 plt.figure(1)  # Create the first figure
 for i in range(num_particles):
-    plt.plot(y_plot[i], z_plot[i], color = "red") 
+    plt.plot(eta_plot[i], zeta_plot[i], color = "red") 
     plt.xlabel("η")
     plt.xlim(-40, 40)
     plt.ylim(-40, 40)

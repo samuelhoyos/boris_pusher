@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # The path has some problems with the folder
 import sys
@@ -19,7 +20,7 @@ from modules.functions import update_v_relativistic, update_r
 e = -1.0  # Electron charge
 me = 1.0  # Electron mass
 c = 1.0  # Speed of light
-B0 = 1 # Magnetic field strength
+B0 = 0.1 # Magnetic field strength
 beta_p = 0.2  # Normalized shock speed (v_s/c)
 a = 0.05  # Magnetic curvature coefficient
 
@@ -29,10 +30,10 @@ v_s = beta_p * c  # Shock speed
 omega_ce = abs(e) * B0 / (me * c)  # Electron cyclotron frequency
 k = omega_ce / c  # Wave number = inverse of the width of the shock front
 
-num_particles = 16  # Number of test particles
+num_particles = 4  # Number of test particles
 
 # Final time for the simulation
-final_time = 100
+final_time = 150/B0
 omega_ce = abs(e) * B0 / me  # Electron cyclotron frequency
 k = omega_ce / c  # Width of the shock front
 
@@ -44,11 +45,12 @@ t_min, t_max = 0.0, final_time
 # Tolerance for the magnetic field
 min_tolerance_B = 1
 
-seed = 363 # Random seed
+seed = 348 # Random seed
 np.random.seed(seed)
 
 # Used for plotting
 number_of_snapshots = 1
+
 
 ####################################
 # Ranges for the initial positions #
@@ -61,6 +63,7 @@ number_of_snapshots = 1
 # Type 2 range (this one is the best one)
 eta_ranges = [(-7, -8), (-7, -8), (7, 8), (7, 8)]
 zeta_ranges = [(-7, -8), (7, 8), (-7, -8), (7, 8)]
+range_num = 2
 
 # Type 3 range
 #eta_ranges = [(0.5, -0.5)]
@@ -85,6 +88,10 @@ zeta_ranges = [(-7, -8), (7, 8), (-7, -8), (7, 8)]
 
 # Number of particles per subrange
 particles_per_range = int(num_particles/len(eta_ranges))
+
+
+dataName = f"B0 = {B0}, N = {num_particles}, t = {final_time}, range = {range_num}"
+
 
 
 ###########################################################
@@ -173,15 +180,16 @@ for i in tqdm(range(num_particles)):
     j = 0
     with tqdm(total=final_time) as pbar:     
         while (t < final_time):
-
-            if (np.linalg.norm(magnetic_field(eta=r[1], zeta=r[2], t=t)) > min_tolerance_B): 
-                # To ensure stability concerning dt, and avoiding that it gets too small or too big  
-                dt = (0.05 * 0.1 * me) / (abs(e) * np.linalg.norm(magnetic_field(eta=r[1], zeta=r[2], t=t)))                
+            B_field = magnetic_field(eta=r[1], zeta=r[2], t=t)
+            #if (np.linalg.norm(magnetic_field(eta=r[1], zeta=r[2], t=t)) > min_tolerance_B): 
+            gamma = 1/np.sqrt(1 - np.linalg.norm(v)**2/c**2)
+            # To ensure stability concerning dt, and avoiding that it gets too small or too big  
+            dt = (0.05 * 0.1 * me * gamma) / (abs(e) * np.linalg.norm(B_field))                
 
             v = update_v_relativistic(
                 v=v,
                 E=electric_field(eta=r[1], zeta=r[2], t=t),
-                B=magnetic_field(eta=r[1], zeta=r[2], t=t),
+                B=B_field,
                 dt=dt,
             )
 
@@ -226,14 +234,17 @@ for i in range(num_particles):
     zeta_plot.append(zeta_plot_aux)
 
 
+df = pd.DataFrame({"time": time, "chi": chi_plot, "etas": eta_plot, "zetas": zeta_plot})
+df.to_parquet(f"C:\\Users\\danie\\Desktop\\Images Ciardi\\{dataName}.csv")
+
 # Eta - zeta plot
 
 plt.figure(1)  # Create the first figure
 for i in range(num_particles):
     plt.plot(eta_plot[i], zeta_plot[i], color = "red") 
     plt.xlabel("η")
-    plt.xlim(-40, 40)
-    plt.ylim(-40, 40)
+    # plt.xlim(-40, 40)
+    # plt.ylim(-40, 40)
     plt.ylabel("ζ")
     plt.legend()
 
@@ -244,8 +255,8 @@ plt.figure(2)  # Create the first figure
 for i in range(num_particles):
     plt.plot(chi_plot[i], zeta_plot[i], color = "red") 
     plt.xlabel("Chi")
-    plt.xlim(-40, 40)
-    plt.ylim(-40, 40)
+    # plt.xlim(-40, 40)
+    # plt.ylim(-40, 40)
     plt.ylabel("ζ")
     plt.legend()
 
