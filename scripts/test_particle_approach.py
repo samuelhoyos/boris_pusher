@@ -30,7 +30,7 @@ v_s = beta_p * c  # Shock speed
 omega_ce = abs(e) * B0 / (me * c)  # Electron cyclotron frequency
 k = omega_ce / c  # Wave number = inverse of the width of the shock front
 
-num_particles = 50  # Number of test particles
+num_particles = 32  # Number of test particles
 
 # Final time for the simulation
 final_time = 100/B0

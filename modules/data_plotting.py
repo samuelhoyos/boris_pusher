@@ -5,8 +5,8 @@ import numpy as np
 # IMPORTANT : Check the sign of xi, because it has been modified in the main code, so here it already comes as negative...
 
 # Copy the path directly from the file
-dataName = "B0 = 0.2, N = 50, t = 500.0, range = 5"
-num_of_particles = 50 # To introduce manually the number of particles to plot
+dataName = "B0 = 0.2, N = 32, t = 500.0, range = 5"
+num_of_particles = 32 # To introduce manually the number of particles to plot
 num_of_snapshots = 10
 
 # Extracted data from the file
@@ -24,11 +24,10 @@ print(df['xi'].map(np.min))
 plt.figure(1)
 
 for i in range(num_of_particles): 
-    if i != 29: 
-        plt.plot(df.eta.iloc[i], df.zeta.iloc[i], color = "red") 
-        plt.xlabel("η", fontsize=20)
-        plt.ylabel("ζ", fontsize=20)
-        plt.tick_params(axis='both', labelsize=14)  # Set label size for both x and y axes
+    plt.plot(df.eta.iloc[i], df.zeta.iloc[i], color = "red") 
+    plt.xlabel("η", fontsize=20)
+    plt.ylabel("ζ", fontsize=20)
+    plt.tick_params(axis='both', labelsize=14)  # Set label size for both x and y axes
 
 
 
@@ -40,7 +39,7 @@ plt.figure(2)
 
 for i in range(num_of_particles): 
     if i != 29: 
-        plt.plot(-df.xi.iloc[i], df.zeta.iloc[i], color = "red") 
+        plt.plot(df.xi.iloc[i], df.zeta.iloc[i], color = "red") 
         plt.xlabel("ξ", fontsize=20)
         plt.ylabel("ζ", fontsize=20)
         plt.tick_params(axis='both', labelsize=14)  # Set label size for both x and y axes
@@ -55,7 +54,7 @@ plt.figure(3)
 
 for i in range(num_of_particles): 
     if i != 29: 
-        plt.plot(-df.xi.iloc[i], df.eta.iloc[i], color = "red", linewidth=0.5) 
+        plt.plot(df.xi.iloc[i], df.eta.iloc[i], color = "red", linewidth=0.5) 
         plt.xlabel("ξ", fontsize=20)
         plt.ylabel("η", fontsize=20)
         plt.tick_params(axis='both', labelsize=14)  # Set label size for both x and y axes
@@ -113,7 +112,7 @@ for snapshot_idx, snapshot_time in enumerate(snapshot_times):
         closest_idx = min(range(len(particle_times)), key=lambda idx: abs(particle_times[idx] - snapshot_time))
 
         # Get the position of the particle at this time
-        xi_snapshot = -df.xi.iloc[i][closest_idx]
+        xi_snapshot = df.xi.iloc[i][closest_idx]
         zeta_snapshot = df.zeta.iloc[i][closest_idx]
 
         # Plot the snapshot point
@@ -140,15 +139,15 @@ for snapshot_idx, snapshot_time in enumerate(snapshot_times):
         closest_idx = min(range(len(particle_times)), key=lambda idx: abs(particle_times[idx] - snapshot_time))
 
         # Get the position of the particle at this time
-        xi_snapshot = -df.xi.iloc[i][closest_idx]
+        xi_snapshot = df.xi.iloc[i][closest_idx]
         eta_snapshot = df.eta.iloc[i][closest_idx]
 
         # Plot the snapshot point
         plt.scatter(xi_snapshot, eta_snapshot, color=colors[snapshot_idx], label=f"t={snapshot_time:.1f}" if i == 0 else "")
 
 plt.xlabel("ξ", fontsize=20)
-plt.ylabel("ζ", fontsize=20)
-plt.title("ξ vs ζ (Snapshots)")
+plt.ylabel("η", fontsize=20)
+plt.title("ξ vs η (Snapshots)")
 plt.tick_params(axis='both', labelsize=14)  # Set label size for both x and y axes
 
 
